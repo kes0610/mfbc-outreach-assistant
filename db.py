@@ -119,7 +119,91 @@ def init_db() -> None:
                 WHERE stage IS NULL
                 """
             )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS templates (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                body TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS snippets (
+                condition_key TEXT PRIMARY KEY,
+                label TEXT NOT NULL,
+                text TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        seed_defaults(conn)
     maybe_daily_backup()
+
+
+SNIPPET_CONDITIONS = [
+    ("default", "Fallback (always applies if nothing more specific matches)"),
+    ("ask_sponsorship", "Ask type is sponsorship"),
+    ("ask_speaker", "Ask type is speaker"),
+    ("ask_partnership", "Ask type is partnership"),
+    ("ask_other", "Ask type is other"),
+    ("connection", "Has a UW/MFBC connection"),
+    ("prior_relationship", "Has a prior relationship"),
+    ("follow_up", "This is a follow-up"),
+]
+
+DEFAULT_SNIPPETS = {
+    "default": (
+        "We think {company} would be a great fit for MFBC's community of UW-Madison "
+        "students interested in fashion, business, and media."
+    ),
+    "ask_sponsorship": (
+        "We're reaching out about a potential sponsorship for our fall convention, where "
+        "we host at least eight industry speakers and small-group coffee chats with our members."
+    ),
+    "ask_speaker": (
+        "We'd love to explore having you speak at our fall convention, where students hear "
+        "directly from industry leaders and join small-group coffee chats afterward."
+    ),
+    "ask_partnership": (
+        "We think there could be a great partnership between {company} and MFBC's community "
+        "of UW-Madison students interested in fashion, business, and media."
+    ),
+    "ask_other": "We wanted to reach out about a potential collaboration with MFBC.",
+    "connection": "We have a personal connection to your brand, which made us especially excited to reach out.",
+    "prior_relationship": "We've worked with you before and would love to continue that relationship.",
+    "follow_up": "Following up on our last note —",
+}
+
+DEFAULT_TEMPLATE_NAME = "Standard outreach"
+DEFAULT_TEMPLATE_BODY = """Hi {contact_name},
+
+My name is {sender} and I'm reaching out on behalf of the Madison Fashion Business \
+Collective (MFBC) at UW-Madison. {reason}
+
+Would you be open to connecting about this?
+
+Best,
+{sender}
+MFBC"""
+
+
+def seed_defaults(conn) -> None:
+    now = _now()
+    for key, label in SNIPPET_CONDITIONS:
+        conn.execute(
+            "INSERT OR IGNORE INTO snippets (condition_key, label, text, updated_at) VALUES (?, ?, ?, ?)",
+            (key, label, DEFAULT_SNIPPETS[key], now),
+        )
+    has_template = conn.execute("SELECT COUNT(*) FROM templates").fetchone()[0]
+    if not has_template:
+        conn.execute(
+            "INSERT INTO templates (name, body, created_at, updated_at) VALUES (?, ?, ?, ?)",
+            (DEFAULT_TEMPLATE_NAME, DEFAULT_TEMPLATE_BODY, now, now),
+        )
 
 
 @contextmanager
@@ -391,6 +475,94 @@ def compute_summary(df: pd.DataFrame) -> dict:
 
 def export_csv_bytes(df: pd.DataFrame) -> bytes:
     return df.to_csv(index=False).encode("utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Free templates (no API call, no cost)
+# ---------------------------------------------------------------------------
+
+def fetch_templates() -> pd.DataFrame:
+    with _connect() as conn:
+        return pd.read_sql_query("SELECT * FROM templates ORDER BY name", conn)
+
+
+def save_template(template_id: int | None, name: str, body: str) -> int:
+    now = _now()
+    with _connect() as conn:
+        if template_id is None:
+            cur = conn.execute(
+                "INSERT INTO templates (name, body, created_at, updated_at) VALUES (?, ?, ?, ?)",
+                (name, body, now, now),
+            )
+            return cur.lastrowid
+        conn.execute(
+            "UPDATE templates SET name = ?, body = ?, updated_at = ? WHERE id = ?",
+            (name, body, now, template_id),
+        )
+        return template_id
+
+
+def delete_template(template_id: int) -> None:
+    with _connect() as conn:
+        conn.execute("DELETE FROM templates WHERE id = ?", (template_id,))
+
+
+def fetch_snippets() -> pd.DataFrame:
+    with _connect() as conn:
+        df = pd.read_sql_query("SELECT * FROM snippets", conn)
+    order = {key: i for i, (key, _label) in enumerate(SNIPPET_CONDITIONS)}
+    df["_order"] = df["condition_key"].map(order)
+    return df.sort_values("_order").drop(columns="_order")
+
+
+def save_snippet(condition_key: str, text: str) -> None:
+    now = _now()
+    with _connect() as conn:
+        conn.execute(
+            "UPDATE snippets SET text = ?, updated_at = ? WHERE condition_key = ?",
+            (text, now, condition_key),
+        )
+
+
+def matching_snippet_keys(brand_info: dict) -> list[str]:
+    keys = []
+    if brand_info.get("has_uw_mfbc_connection"):
+        keys.append("connection")
+    if brand_info.get("has_prior_relationship"):
+        keys.append("prior_relationship")
+    if brand_info.get("is_follow_up"):
+        keys.append("follow_up")
+    ask_key = f"ask_{brand_info.get('ask_type')}"
+    if ask_key in DEFAULT_SNIPPETS:
+        keys.append(ask_key)
+    if not keys:
+        keys.append("default")
+    return keys
+
+
+def render_template(body: str, brand_info: dict) -> str:
+    """Fill a template's placeholders from brand_info + matching snippets. No API call."""
+    snippets = fetch_snippets().set_index("condition_key")["text"].to_dict()
+    reason = " ".join(snippets.get(k, "") for k in matching_snippet_keys(brand_info)).strip()
+
+    raw_contact_name = brand_info.get("contact_name") or ""
+    looks_like_a_name = raw_contact_name and "@" not in raw_contact_name and "http" not in raw_contact_name.lower()
+
+    values = {
+        "company": brand_info.get("company") or "[COMPANY]",
+        "contact_name": raw_contact_name if looks_like_a_name else "there",
+        "contact_role": brand_info.get("contact_role") or "",
+        "sender": brand_info.get("sender") or "[YOUR NAME]",
+        "ask_type_label": ASK_TYPE_LABELS.get(brand_info.get("ask_type"), "other"),
+        "reason": reason,
+    }
+    # Fill the reason snippet's own {company} placeholder before filling the template.
+    values["reason"] = values["reason"].format(company=values["company"])
+
+    try:
+        return body.format(**values)
+    except (KeyError, IndexError) as exc:
+        return body + f"\n\n[Template error: unknown placeholder {exc}]"
 
 
 MODEL_MIN_N = 30

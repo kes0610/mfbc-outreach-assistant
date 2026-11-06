@@ -14,14 +14,6 @@ st.caption(
     "themselves from their own email."
 )
 
-if not drafting.api_key_available():
-    st.error(
-        "ANTHROPIC_API_KEY isn't set, so drafting can't call the Claude API. "
-        "Set it as an environment variable (never hard-coded) before using this page:\n\n"
-        "`export ANTHROPIC_API_KEY=sk-ant-...`"
-    )
-    st.stop()
-
 df = db.fetch_all()
 new_df = df[df["stage"] == "new"].copy()
 
@@ -33,14 +25,14 @@ if target_id is not None:
         target = match.iloc[0].to_dict()
 
 st.subheader("1. Who is this for?")
-mode = st.radio(
+source_mode = st.radio(
     "Brand source",
     ["Pick from New brand", "Enter a brand not logged yet"],
     horizontal=True,
     index=0 if target is not None else (0 if not new_df.empty else 1),
 )
 
-if mode == "Pick from New brand":
+if source_mode == "Pick from New brand":
     if new_df.empty:
         st.info("Nothing in New brand to pick from — switch to entering one manually.")
         brand_info = None
@@ -65,6 +57,7 @@ else:
         has_uw_mfbc_connection = st.checkbox("UW or MFBC connection")
         has_prior_relationship = st.checkbox("Prior relationship")
     notes = st.text_area("Notes about this brand")
+    sender = st.text_input("Sender (your name)")
     brand_info = {
         "id": None,
         "company": company.strip(),
@@ -75,6 +68,7 @@ else:
         "has_prior_relationship": has_prior_relationship,
         "is_follow_up": False,
         "notes": notes.strip() or None,
+        "sender": sender.strip() or None,
     } if company.strip() else None
 
 if brand_info:
@@ -86,33 +80,70 @@ if brand_info:
         f"need {db.MODEL_MIN_N}+). " + " · ".join(chance["reasons"])
     )
 
-    st.subheader("2. Anything else true about this brand?")
-    extra_info = st.text_area(
-        "Paste any public information you know about them (website copy, recent news, "
-        "their Instagram bio, etc.) — the draft will only use what's here plus the fields above.",
-        key="extra_public_info",
+    st.subheader("2. Draft it")
+    draft_mode = st.radio(
+        "Drafting mode",
+        ["Free template (no cost)", "AI-generated (Claude API — costs a small amount)"],
+        horizontal=True,
     )
 
-    if st.button("Generate draft", type="primary"):
-        with st.spinner("Drafting..."):
-            try:
-                result = drafting.generate_draft(brand_info, extra_info)
-                st.session_state["draft_result"] = result
-            except Exception as exc:
-                st.error(f"Couldn't generate a draft: {exc}")
+    edited_draft = None
+    relied_on = None
 
-    result = st.session_state.get("draft_result")
-    if result:
-        st.subheader("3. Review and edit")
-        edited_draft = st.text_area("Draft email", value=result["draft"], height=280)
-        with st.expander("What this draft relied on"):
-            st.write(result["relied_on"])
+    if draft_mode == "Free template (no cost)":
+        templates = db.fetch_templates()
+        if templates.empty:
+            st.warning("No templates yet — add one on the Templates page.")
+        else:
+            t_options = {row.name: row for row in templates.itertuples()}
+            t_choice = st.selectbox("Template", list(t_options.keys()))
+            template_row = t_options[t_choice]
+            rendered = db.render_template(template_row.body, brand_info)
+            edited_draft = st.text_area("Draft email", value=rendered, height=280, key="free_draft_text")
+            st.caption(
+                "Filled in from the template's placeholders and the matching reason snippet(s) — "
+                "no API call, nothing spent. Edit the "
+                "[Templates](/Templates) page to change the wording."
+            )
+    else:
+        if not drafting.api_key_available():
+            st.error(
+                "ANTHROPIC_API_KEY isn't set, so this mode can't call the Claude API. "
+                "Set it as an environment variable (never hard-coded) to use it:\n\n"
+                "`export ANTHROPIC_API_KEY=sk-ant-...`"
+            )
+        else:
+            extra_info = st.text_area(
+                "Paste any public information you know about them (website copy, recent "
+                "news, their Instagram bio, etc.) — the draft will only use what's here "
+                "plus the fields above.",
+                key="extra_public_info",
+            )
+            if st.button("Generate AI draft", type="primary"):
+                with st.spinner("Drafting..."):
+                    try:
+                        result = drafting.generate_draft(brand_info, extra_info)
+                        st.session_state["ai_draft_result"] = result
+                    except Exception as exc:
+                        st.error(f"Couldn't generate a draft: {exc}")
+
+            result = st.session_state.get("ai_draft_result")
+            if result:
+                edited_draft = st.text_area(
+                    "Draft email", value=result["draft"], height=280, key="ai_draft_text"
+                )
+                relied_on = result["relied_on"]
+
+    if edited_draft:
+        if relied_on:
+            with st.expander("What this draft relied on"):
+                st.write(relied_on)
         st.caption(
-            "Check every placeholder in brackets and every claim before sending — this tool "
-            "never sends email on its own."
+            "Check every placeholder in brackets and every claim before sending — this "
+            "tool never sends email on its own."
         )
 
-        st.subheader("4. Save it")
+        st.subheader("3. Save it")
         c1, c2 = st.columns(2)
         with c1:
             if st.button("Save draft to this brand's record"):
@@ -136,7 +167,7 @@ if brand_info:
                     db.update_record(int(brand_info["id"]), record)
                 else:
                     db.insert_record(record)
-                st.session_state.pop("draft_result", None)
+                st.session_state.pop("ai_draft_result", None)
                 st.session_state.pop("draft_target_id", None)
                 st.success(f"Marked as sent on {sent_date.isoformat()} and moved to In communication.")
                 st.switch_page("pages/1_Outreach_History.py")
