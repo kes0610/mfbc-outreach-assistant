@@ -99,7 +99,11 @@ if brand_info:
             t_choice = st.selectbox("Template", list(t_options.keys()))
             template_row = t_options[t_choice]
             rendered = db.render_template(template_row.body, brand_info)
-            edited_draft = st.text_area("Draft email", value=rendered, height=280, key="free_draft_text")
+            brand_key = brand_info.get("id") if brand_info.get("id") is not None else brand_info.get("company")
+            edited_draft = st.text_area(
+                "Draft email", value=rendered, height=280,
+                key=f"free_draft_text_{brand_key}_{template_row.id}",
+            )
             st.caption(
                 "Filled in from the template's placeholders and the matching reason snippet(s) — "
                 "no API call, nothing spent. Edit the "
@@ -124,13 +128,15 @@ if brand_info:
                     try:
                         result = drafting.generate_draft(brand_info, extra_info)
                         st.session_state["ai_draft_result"] = result
+                        st.session_state["ai_draft_version"] = st.session_state.get("ai_draft_version", 0) + 1
                     except Exception as exc:
                         st.error(f"Couldn't generate a draft: {exc}")
 
             result = st.session_state.get("ai_draft_result")
             if result:
                 edited_draft = st.text_area(
-                    "Draft email", value=result["draft"], height=280, key="ai_draft_text"
+                    "Draft email", value=result["draft"], height=280,
+                    key=f"ai_draft_text_{st.session_state.get('ai_draft_version', 0)}",
                 )
                 relied_on = result["relied_on"]
 
