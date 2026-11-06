@@ -37,6 +37,14 @@ OUTCOME_LABELS = {
 }
 REPLIED_OUTCOMES = {"replied", "declined", "meeting_booked"}
 
+STAGES = ["new", "in_communication", "archived", "attending"]
+STAGE_LABELS = {
+    "new": "New brand",
+    "in_communication": "In communication",
+    "archived": "Archived",
+    "attending": "Attending",
+}
+
 COLUMNS = [
     "id",
     "company",
@@ -52,6 +60,7 @@ COLUMNS = [
     "notes",
     "outcome",
     "reply_date",
+    "stage",
     "created_at",
     "updated_at",
 ]
@@ -95,6 +104,21 @@ def init_db() -> None:
             )
             """
         )
+        existing_cols = {row[1] for row in conn.execute("PRAGMA table_info(outreach)").fetchall()}
+        if "stage" not in existing_cols:
+            conn.execute("ALTER TABLE outreach ADD COLUMN stage TEXT")
+            conn.execute(
+                """
+                UPDATE outreach SET stage = CASE
+                    WHEN outcome = 'declined' THEN 'archived'
+                    WHEN outcome IN ('replied', 'meeting_booked') THEN 'in_communication'
+                    WHEN outcome = 'no_reply' THEN 'in_communication'
+                    WHEN date_sent IS NOT NULL AND date_sent != '' THEN 'in_communication'
+                    ELSE 'new'
+                END
+                WHERE stage IS NULL
+                """
+            )
     maybe_daily_backup()
 
 
@@ -188,6 +212,18 @@ def validate_record(record: dict) -> list[str]:
     return issues
 
 
+def default_stage(record: dict) -> str:
+    """Best starting stage for a record that doesn't specify one."""
+    outcome = record.get("outcome")
+    if outcome == "declined":
+        return "archived"
+    if outcome in ("replied", "meeting_booked", "no_reply"):
+        return "in_communication"
+    if record.get("date_sent"):
+        return "in_communication"
+    return "new"
+
+
 def dup_key(record: dict) -> tuple:
     return (
         str(record.get("company") or "").strip().lower(),
@@ -212,6 +248,9 @@ def find_duplicate_groups(df: pd.DataFrame) -> pd.DataFrame:
 
 def insert_record(record: dict) -> int:
     now = _now()
+    record = dict(record)
+    if not record.get("stage"):
+        record["stage"] = default_stage(record)
     with _connect() as conn:
         cur = conn.execute(
             f"""
@@ -352,3 +391,50 @@ def compute_summary(df: pd.DataFrame) -> dict:
 
 def export_csv_bytes(df: pd.DataFrame) -> bytes:
     return df.to_csv(index=False).encode("utf-8")
+
+
+MODEL_MIN_N = 30
+
+
+def estimate_reply_chance(record: dict, df: pd.DataFrame) -> dict:
+    """Rough, transparent reply-chance estimate.
+
+    With this little labeled history, a trained model would just memorize
+    noise, so this is a simple, documented rule of thumb against the club's
+    own historical reply rate — not a calibrated probability. Once there are
+    MODEL_MIN_N+ labeled outcomes, this should be replaced by an actual
+    trained/evaluated model (logistic regression per the project plan).
+    """
+    labeled = df[df["outcome"].isin(OUTCOMES)] if len(df) else df
+    base_n = len(labeled)
+    base_replied = int(labeled["outcome"].isin(REPLIED_OUTCOMES).sum()) if base_n else 0
+    base_rate = (base_replied / base_n) if base_n else None
+
+    score = 0
+    reasons = []
+    if record.get("has_uw_mfbc_connection"):
+        score += 1
+        reasons.append("higher: UW/MFBC connection")
+    if record.get("has_prior_relationship"):
+        score += 1
+        reasons.append("higher: prior relationship with this company/contact")
+    if record.get("is_follow_up"):
+        score += 1
+        reasons.append("higher: this is a follow-up, not cold outreach")
+    if not reasons:
+        reasons.append("lower: no known UW/MFBC connection or prior relationship on file")
+
+    label = "Low"
+    if score >= 2:
+        label = "High"
+    elif score == 1:
+        label = "Medium"
+
+    return {
+        "label": label,
+        "reasons": reasons,
+        "base_n": base_n,
+        "base_replied": base_replied,
+        "base_rate": base_rate,
+        "enough_for_model": base_n >= MODEL_MIN_N,
+    }

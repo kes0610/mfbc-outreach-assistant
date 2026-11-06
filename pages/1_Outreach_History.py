@@ -79,7 +79,104 @@ if active_batch:
 
 st.divider()
 
-tab_add, tab_edit, tab_import = st.tabs(["➕ Add one email", "📊 Edit table", "📥 Import CSV / Excel"])
+tab_new, tab_comm, tab_archived, tab_attending, tab_add, tab_edit, tab_import = st.tabs(
+    [
+        "🆕 New brand",
+        "💬 In communication",
+        "📁 Archived",
+        "🎤 Attending",
+        "➕ Add one email",
+        "📊 Edit table",
+        "📥 Import CSV / Excel",
+    ]
+)
+
+PIPELINE_VIEW_COLUMNS = [
+    "company", "sender", "contact_name", "contact_role", "ask_type",
+    "date_sent", "outcome", "notes",
+]
+
+# ---------------------------------------------------------------------------
+# Pipeline stage tabs
+# ---------------------------------------------------------------------------
+
+with tab_new:
+    new_df = df[df["stage"] == "new"].copy()
+    st.caption(
+        f"{len(new_df)} brand(s) not yet contacted. Pick one to draft an outreach email "
+        "and see a rough reply-chance estimate before you send."
+    )
+    if new_df.empty:
+        st.info("Nothing in New brand right now.")
+    else:
+        st.dataframe(
+            new_df[["company", "sender", "contact_name", "ask_type", "notes"]],
+            use_container_width=True,
+            hide_index=True,
+            height=min(400, 40 + 35 * len(new_df)),
+        )
+        options = {f"{row.company} (id {row.id})": row.id for row in new_df.itertuples()}
+        choice = st.selectbox("Choose a brand", list(options.keys()), key="new_brand_choice")
+        if choice:
+            target_id = options[choice]
+            target = new_df[new_df["id"] == target_id].iloc[0].to_dict()
+            chance = db.estimate_reply_chance(target, df)
+            c1, c2 = st.columns([1, 2])
+            with c1:
+                st.metric("Rough reply chance", chance["label"])
+            with c2:
+                st.caption(
+                    "Based on a simple rule of thumb, not a trained model — only "
+                    f"{chance['base_n']} labeled outcome(s) logged so far (need {db.MODEL_MIN_N}+ "
+                    "for a real statistical model). Club-wide so far: "
+                    + (
+                        f"{chance['base_replied']}/{chance['base_n']} replied."
+                        if chance["base_n"]
+                        else "no labeled outcomes yet."
+                    )
+                )
+                st.caption(" · ".join(chance["reasons"]))
+            if st.button("✉️ Draft email for this brand", type="primary"):
+                st.session_state["draft_target_id"] = int(target_id)
+                st.switch_page("pages/2_Draft_Email.py")
+
+with tab_comm:
+    comm_df = df[df["stage"] == "in_communication"].copy()
+    st.caption(f"{len(comm_df)} brand(s) sent and waiting on / discussing a response.")
+    if comm_df.empty:
+        st.info("Nothing in In communication right now.")
+    else:
+        st.dataframe(
+            comm_df[PIPELINE_VIEW_COLUMNS], use_container_width=True, hide_index=True,
+            height=min(500, 40 + 35 * len(comm_df)),
+        )
+
+with tab_archived:
+    archived_df = df[df["stage"] == "archived"].copy()
+    st.caption(f"{len(archived_df)} brand(s) closed out (declined or no longer pursuing).")
+    if archived_df.empty:
+        st.info("Nothing archived right now.")
+    else:
+        st.dataframe(
+            archived_df[PIPELINE_VIEW_COLUMNS], use_container_width=True, hide_index=True,
+            height=min(500, 40 + 35 * len(archived_df)),
+        )
+
+with tab_attending:
+    attending_df = df[df["stage"] == "attending"].copy()
+    st.caption(f"{len(attending_df)} brand(s) confirmed for this semester's event.")
+    if attending_df.empty:
+        st.info("Nothing confirmed as attending yet.")
+    else:
+        st.dataframe(
+            attending_df[PIPELINE_VIEW_COLUMNS], use_container_width=True, hide_index=True,
+            height=min(500, 40 + 35 * len(attending_df)),
+        )
+
+st.caption(
+    "Move a brand between stages (New brand / In communication / Archived / Attending) "
+    "from the **Edit table** tab below."
+)
 
 # ---------------------------------------------------------------------------
 # Tab: Add one email
@@ -101,6 +198,10 @@ with tab_add:
             has_prior_relationship = st.checkbox("Prior relationship with this company/contact")
             outcome = st.selectbox("Outcome", db.OUTCOMES, format_func=lambda k: db.OUTCOME_LABELS[k])
             reply_date = st.date_input("Reply date (if any)", value=None)
+            stage_choice = st.selectbox(
+                "Pipeline stage", ["(auto)"] + db.STAGES,
+                format_func=lambda k: k if k == "(auto)" else db.STAGE_LABELS[k],
+            )
         email_text = st.text_area("Email text (optional)")
         notes = st.text_area("Notes (optional)")
 
@@ -123,6 +224,7 @@ with tab_add:
                     "notes": notes.strip() or None,
                     "outcome": outcome,
                     "reply_date": _to_iso(reply_date),
+                    "stage": None if stage_choice == "(auto)" else stage_choice,
                 }
                 issues = db.validate_record(record)
                 db.insert_record(record)
@@ -189,6 +291,9 @@ with tab_edit:
                 "notes": st.column_config.TextColumn("Notes"),
                 "outcome": st.column_config.SelectboxColumn("Outcome", options=db.OUTCOMES),
                 "reply_date": st.column_config.DateColumn("Reply date"),
+                "stage": st.column_config.SelectboxColumn(
+                    "Stage", options=db.STAGES, required=True,
+                ),
             },
         )
 
