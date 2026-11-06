@@ -98,17 +98,20 @@ if brand_info:
             t_options = {row.name: row for row in templates.itertuples()}
             t_choice = st.selectbox("Template", list(t_options.keys()))
             template_row = t_options[t_choice]
-            rendered = db.render_template(template_row.body, brand_info)
-            brand_key = brand_info.get("id") if brand_info.get("id") is not None else brand_info.get("company")
-            edited_draft = st.text_area(
-                "Draft email", value=rendered, height=280,
-                key=f"free_draft_text_{brand_key}_{template_row.id}",
-            )
             st.caption(
-                "Filled in from the template's placeholders and the matching reason snippet(s) — "
-                "no API call, nothing spent. Edit the "
-                "[Templates](/Templates) page to change the wording."
+                "No API call, nothing spent. Edit the [Templates](/Templates) page to "
+                "change the wording, then click below to (re)fill it with this brand's info."
             )
+            if st.button("Fill in template"):
+                rendered = db.render_template(template_row.body, brand_info)
+                st.session_state["free_draft_text"] = rendered
+                st.session_state["free_draft_version"] = st.session_state.get("free_draft_version", 0) + 1
+
+            if "free_draft_text" in st.session_state:
+                edited_draft = st.text_area(
+                    "Draft email", value=st.session_state["free_draft_text"], height=280,
+                    key=f"free_draft_box_{st.session_state.get('free_draft_version', 0)}",
+                )
     else:
         if not drafting.api_key_available():
             st.error(
