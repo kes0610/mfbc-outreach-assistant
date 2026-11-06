@@ -3,13 +3,14 @@ from datetime import datetime
 import streamlit as st
 
 import db
+from styling import inject_global_css, page_header
 
 st.set_page_config(page_title="Templates", page_icon="📝", layout="wide")
 db.init_db()
+inject_global_css()
 
-st.title("📝 Email Templates")
+page_header("Email Templates", "Powers the free, no-cost drafting mode — no API calls, nothing spent.")
 st.caption(
-    "These power the free, no-cost drafting mode — no API calls, nothing spent. "
     "Use placeholders like {contact_name}, {company}, {sender}, {ask_type_label}, and "
     "{reason} (auto-filled from the snippets below based on the brand's info)."
 )

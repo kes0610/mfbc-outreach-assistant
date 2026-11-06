@@ -1,21 +1,17 @@
 import streamlit as st
 
 import db
+from styling import inject_global_css, page_header
 
 st.set_page_config(page_title="MFBC Outreach Assistant", page_icon="📬", layout="wide")
 db.init_db()
+inject_global_css()
 
-st.title("📬 MFBC Outreach Assistant")
-st.write(
-    "A tool for the Madison Fashion Business Collective to draft outreach, "
-    "estimate reply likelihood, and track follow-ups — built on the club's "
-    "own outreach history."
-)
+page_header("MFBC Outreach Assistant", "Draft outreach, estimate reply chances, track the pipeline.")
 
 st.info(
-    "**Start with Outreach History** (left sidebar) — enter or import past and "
-    "ongoing outreach there. Drafting and the reply-likelihood model are built "
-    "on top of that data and aren't available yet."
+    "**Start with Outreach History** (left sidebar) to enter or import past and ongoing "
+    "outreach — drafting and the reply-chance estimate are built on top of that data."
 )
 
 df = db.fetch_all()

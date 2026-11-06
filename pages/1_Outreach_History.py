@@ -4,11 +4,13 @@ import pandas as pd
 import streamlit as st
 
 import db
+from styling import inject_global_css, page_header
 
 st.set_page_config(page_title="Outreach History", page_icon="📋", layout="wide")
 db.init_db()
+inject_global_css()
 
-st.title("📋 Outreach History")
+page_header("Outreach History", "Every brand, from first idea to confirmed attendee.")
 
 EDITOR_KEY = "history_editor"
 
@@ -66,7 +68,7 @@ with top_right:
         data=db.export_csv_bytes(df),
         file_name=f"mfbc_outreach_export_{date.today().isoformat()}.csv",
         mime="text/csv",
-        use_container_width=True,
+        width='stretch',
     )
 
 active_batch = db.latest_active_batch_id()
@@ -111,7 +113,7 @@ with tab_new:
     else:
         st.dataframe(
             new_df[["company", "sender", "contact_name", "ask_type", "notes"]],
-            use_container_width=True,
+            width='stretch',
             hide_index=True,
             height=min(400, 40 + 35 * len(new_df)),
         )
@@ -147,7 +149,7 @@ with tab_comm:
         st.info("Nothing in In communication right now.")
     else:
         st.dataframe(
-            comm_df[PIPELINE_VIEW_COLUMNS], use_container_width=True, hide_index=True,
+            comm_df[PIPELINE_VIEW_COLUMNS], width='stretch', hide_index=True,
             height=min(500, 40 + 35 * len(comm_df)),
         )
 
@@ -158,7 +160,7 @@ with tab_archived:
         st.info("Nothing archived right now.")
     else:
         st.dataframe(
-            archived_df[PIPELINE_VIEW_COLUMNS], use_container_width=True, hide_index=True,
+            archived_df[PIPELINE_VIEW_COLUMNS], width='stretch', hide_index=True,
             height=min(500, 40 + 35 * len(archived_df)),
         )
 
@@ -169,7 +171,7 @@ with tab_attending:
         st.info("Nothing confirmed as attending yet.")
     else:
         st.dataframe(
-            attending_df[PIPELINE_VIEW_COLUMNS], use_container_width=True, hide_index=True,
+            attending_df[PIPELINE_VIEW_COLUMNS], width='stretch', hide_index=True,
             height=min(500, 40 + 35 * len(attending_df)),
         )
 
@@ -274,7 +276,7 @@ with tab_edit:
             key=EDITOR_KEY,
             num_rows="dynamic",
             hide_index=True,
-            use_container_width=True,
+            width='stretch',
             disabled=["id"],
             column_config={
                 "id": st.column_config.NumberColumn("ID"),
@@ -414,7 +416,7 @@ with tab_import:
             will_import = sum(1 for r in preview_rows if "duplicate" not in r["_issues"])
             will_skip = len(preview_rows) - will_import
             st.markdown(f"**Preview:** {will_import} row(s) will be imported, {will_skip} skipped as duplicates.")
-            st.dataframe(preview_df, use_container_width=True, height=300)
+            st.dataframe(preview_df, width='stretch', height=300)
 
             if st.button("Import", type="primary"):
                 result = db.bulk_import(records)

@@ -4,15 +4,13 @@ import streamlit as st
 
 import db
 import drafting
+from styling import inject_global_css, page_header
 
 st.set_page_config(page_title="Draft Email", page_icon="✉️", layout="wide")
 db.init_db()
+inject_global_css()
 
-st.title("✉️ Draft Outreach Email")
-st.caption(
-    "Drafts only — nothing is ever sent from here. A member reviews, edits, and sends it "
-    "themselves from their own email."
-)
+page_header("Draft Outreach Email", "Drafts only — a member always reviews and sends it themselves.")
 
 df = db.fetch_all()
 new_df = df[df["stage"] == "new"].copy()
