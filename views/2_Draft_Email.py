@@ -6,7 +6,6 @@ import db
 import drafting
 from styling import inject_global_css, page_header
 
-st.set_page_config(page_title="Draft Email", page_icon="✉️", layout="wide")
 db.init_db()
 inject_global_css()
 
@@ -188,4 +187,4 @@ if brand_info:
                 st.session_state.pop("ai_draft_result", None)
                 st.session_state.pop("draft_target_id", None)
                 st.success(f"Marked as sent on {sent_date.isoformat()} and moved to In communication.")
-                st.switch_page("pages/1_Outreach_History.py")
+                st.switch_page("views/1_Outreach_History.py")

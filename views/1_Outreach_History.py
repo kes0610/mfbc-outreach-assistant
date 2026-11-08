@@ -6,7 +6,6 @@ import streamlit as st
 import db
 from styling import inject_global_css, page_header
 
-st.set_page_config(page_title="Outreach History", page_icon="📋", layout="wide")
 db.init_db()
 inject_global_css()
 
@@ -91,30 +90,46 @@ tab_new, tab_comm, tab_future, tab_attending, tab_archived, tab_add, tab_import 
 )
 
 PIPELINE_VIEW_COLUMNS = [
-    "company", "sender", "contact_name", "contact_role", "ask_type",
+    "company", "sender", "contact_name", "stage", "contact_role", "ask_type",
     "date_sent", "outcome", "notes",
 ]
 
+STAGE_LABEL_OPTIONS = [db.STAGE_LABELS[s] for s in db.STAGES]
+STAGE_LABEL_TO_KEY = {v: k for k, v in db.STAGE_LABELS.items()}
 
-def _move_stage_control(stage_df, current_stage, key_prefix):
-    other_stages = [s for s in db.STAGES if s != current_stage]
-    options = {f"{row.company} (id {row.id})": row.id for row in stage_df.itertuples()}
-    c1, c2, c3 = st.columns([2, 2, 1])
-    with c1:
-        choice = st.selectbox("Move a brand", list(options.keys()), key=f"{key_prefix}_move_choice")
-    with c2:
-        target_stage = st.selectbox(
-            "To stage", other_stages, format_func=lambda s: db.STAGE_LABELS[s],
-            key=f"{key_prefix}_move_target",
-        )
-    with c3:
-        st.write("")
-        st.write("")
-        if st.button("Move", key=f"{key_prefix}_move_button", width='stretch'):
-            db.set_stage(options[choice], target_stage)
-            _saved_now()
-            st.success(f"Moved {choice.split(' (id')[0]} to {db.STAGE_LABELS[target_stage]}.")
-            st.rerun()
+
+def _stage_table(stage_df, key_prefix, height=None):
+    """The main table for a stage, with a clickable Stage dropdown column
+    built in — the quickest way to move a brand, no separate control."""
+    view_df = stage_df[PIPELINE_VIEW_COLUMNS].copy()
+    view_df["date_sent"] = view_df["date_sent"].apply(_to_date)
+    view_df["stage"] = view_df["stage"].map(db.STAGE_LABELS)
+
+    editor_key = f"{key_prefix}_stage_table"
+    st.data_editor(
+        view_df,
+        key=editor_key,
+        hide_index=True,
+        width='stretch',
+        height=height or min(500, 40 + 35 * len(view_df)),
+        disabled=[c for c in PIPELINE_VIEW_COLUMNS if c != "stage"],
+        column_config={
+            "stage": st.column_config.SelectboxColumn("Stage", options=STAGE_LABEL_OPTIONS, required=True),
+            "date_sent": st.column_config.DateColumn("Date sent"),
+        },
+    )
+
+    state = st.session_state.get(editor_key, {})
+    changed = False
+    for pos, changes in state.get("edited_rows", {}).items():
+        if "stage" not in changes:
+            continue
+        row_id = int(stage_df.iloc[int(pos)]["id"])
+        db.set_stage(row_id, STAGE_LABEL_TO_KEY[changes["stage"]])
+        changed = True
+    if changed:
+        _saved_now()
+        st.rerun()
 
 
 EDIT_COLUMN_CONFIG = {
@@ -254,12 +269,7 @@ with tab_new:
         if new_df.empty:
             st.info("Nothing in New brand right now.")
         else:
-            st.dataframe(
-                new_df[["company", "sender", "contact_name", "ask_type", "notes"]],
-                width='stretch',
-                hide_index=True,
-                height=min(400, 40 + 35 * len(new_df)),
-            )
+            _stage_table(new_df, "new")
             options = {f"{row.company} (id {row.id})": row.id for row in new_df.itertuples()}
             choice = st.selectbox("Choose a brand", list(options.keys()), key="new_brand_choice")
             if choice:
@@ -283,9 +293,7 @@ with tab_new:
                     st.caption(" · ".join(chance["reasons"]))
                 if st.button("✉️ Draft email for this brand", type="primary"):
                     st.session_state["draft_target_id"] = int(target_id)
-                    st.switch_page("pages/2_Draft_Email.py")
-                st.divider()
-                _move_stage_control(new_df, "new", "new")
+                    st.switch_page("views/2_Draft_Email.py")
 
 with tab_comm:
     comm_df = df[df["stage"] == "in_communication"].copy()
@@ -295,12 +303,7 @@ with tab_comm:
         if comm_df.empty:
             st.info("Nothing in In communication right now.")
         else:
-            st.dataframe(
-                comm_df[PIPELINE_VIEW_COLUMNS], width='stretch', hide_index=True,
-                height=min(500, 40 + 35 * len(comm_df)),
-            )
-            st.divider()
-            _move_stage_control(comm_df, "in_communication", "comm")
+            _stage_table(comm_df, "comm")
 
 with tab_future:
     future_df = df[df["stage"] == "future_participation"].copy()
@@ -313,13 +316,7 @@ with tab_future:
         if future_df.empty:
             st.info("Nothing in Future participation right now.")
         else:
-            st.dataframe(
-                future_df[PIPELINE_VIEW_COLUMNS], width='stretch', hide_index=True,
-                height=min(500, 40 + 35 * len(future_df)),
-            )
-            st.divider()
-            _move_stage_control(future_df, "future_participation", "future")
-
+            _stage_table(future_df, "future")
 with tab_attending:
     attending_df = df[df["stage"] == "attending"].copy()
     st.caption(f"{len(attending_df)} brand(s) confirmed for this semester's event.")
@@ -328,12 +325,7 @@ with tab_attending:
         if attending_df.empty:
             st.info("Nothing confirmed as attending yet.")
         else:
-            st.dataframe(
-                attending_df[PIPELINE_VIEW_COLUMNS], width='stretch', hide_index=True,
-                height=min(500, 40 + 35 * len(attending_df)),
-            )
-            st.divider()
-            _move_stage_control(attending_df, "attending", "attending")
+            _stage_table(attending_df, "attending")
 
 with tab_archived:
     archived_df = df[df["stage"] == "archived"].copy()
@@ -343,12 +335,7 @@ with tab_archived:
         if archived_df.empty:
             st.info("Nothing archived right now.")
         else:
-            st.dataframe(
-                archived_df[PIPELINE_VIEW_COLUMNS], width='stretch', hide_index=True,
-                height=min(500, 40 + 35 * len(archived_df)),
-            )
-            st.divider()
-            _move_stage_control(archived_df, "archived", "archived")
+            _stage_table(archived_df, "archived")
 
 # ---------------------------------------------------------------------------
 # Tab: Add one email

@@ -5,7 +5,6 @@ import streamlit as st
 import db
 from styling import inject_global_css, page_header
 
-st.set_page_config(page_title="Templates", page_icon="📝", layout="wide")
 db.init_db()
 inject_global_css()
 
