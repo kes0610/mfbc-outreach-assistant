@@ -42,6 +42,32 @@ current planning, not be assumed from this file.
   Poppi.
 - MFBC has run flea-market pop-up events ("FLEA") as member-facing
   activities/vendor opportunities, per its Instagram (@the_mfbc).
+- MFBC held a convention at Union South Varsity Hall on 10/18/2026 ("MFBC
+  2026 Convention"), with a speaker panel, networking, flea-market-style
+  pop-ups, and food & drink, per its own Instagram recap post.
+
+## Confirmed past convention speakers & partners (from @the_mfbc, verify before use)
+
+Instagram only shows a limited number of posts without logging in, so this
+is not necessarily the complete list — just what's been confirmed there.
+Double-check names/titles against the actual post before stating them in a
+draft, since small text in a graphic can be misread.
+
+- Mason Henderson & Rob Bowhan — August (listed as founder + a co-owner
+  role; confirm exact title). August is also in MFBC's own outreach log
+  (contact: Devyn Eder), so this is a brand with a real prior speaking
+  relationship, not a cold ask.
+- Rachel Kulacz — Shopbop (listed as a stylist assistant). Shopbop is also
+  already in MFBC's outreach log (contact: Zoe S).
+- Sarikka Raman — described as an NYC-based celebrity fashion stylist.
+- Aaron Basha (fine jewelry brand) — featured in an "Aaron Basha x MFBC:
+  The Convention" branded post, suggesting a sponsor/partner
+  collaboration rather than just a speaking slot.
+
+This is useful for the reply-chance reasoning and drafting: a new brand
+that's a close peer of August, Shopbop, Aaron Basha, or an NYC
+fashion-stylist type has a real precedent of partnering with MFBC, which is
+a stronger, more honest signal than a generic "fashion industry" fit.
 
 ## How this should be used in drafts
 
