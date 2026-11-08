@@ -319,7 +319,7 @@ with tab_future:
             _stage_table(future_df, "future")
 with tab_attending:
     attending_df = df[df["stage"] == "attending"].copy()
-    st.caption(f"{len(attending_df)} brand(s) confirmed for this semester's event.")
+    st.caption(f"{len(attending_df)} brand(s)/people confirmed or already part of a past convention.")
     editing = _edit_toggle(df, "attending", "attending")
     if not editing:
         if attending_df.empty:
