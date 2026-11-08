@@ -81,12 +81,13 @@ if active_batch:
 
 st.divider()
 
-tab_new, tab_comm, tab_archived, tab_attending, tab_add, tab_edit, tab_import = st.tabs(
+tab_new, tab_comm, tab_future, tab_attending, tab_archived, tab_add, tab_edit, tab_import = st.tabs(
     [
         "🆕 New brand",
         "💬 In communication",
-        "📁 Archived",
+        "🔮 Future participation",
         "🎤 Attending",
+        "📁 Archived",
         "➕ Add one email",
         "📊 Edit table",
         "📥 Import CSV / Excel",
@@ -179,18 +180,21 @@ with tab_comm:
         st.divider()
         _move_stage_control(comm_df, "in_communication", "comm")
 
-with tab_archived:
-    archived_df = df[df["stage"] == "archived"].copy()
-    st.caption(f"{len(archived_df)} brand(s) closed out (declined or no longer pursuing).")
-    if archived_df.empty:
-        st.info("Nothing archived right now.")
+with tab_future:
+    future_df = df[df["stage"] == "future_participation"].copy()
+    st.caption(
+        f"{len(future_df)} brand(s) that said yes in some form, but for a later semester or "
+        "event rather than right now — follow up with them when the timing's right."
+    )
+    if future_df.empty:
+        st.info("Nothing in Future participation right now.")
     else:
         st.dataframe(
-            archived_df[PIPELINE_VIEW_COLUMNS], width='stretch', hide_index=True,
-            height=min(500, 40 + 35 * len(archived_df)),
+            future_df[PIPELINE_VIEW_COLUMNS], width='stretch', hide_index=True,
+            height=min(500, 40 + 35 * len(future_df)),
         )
         st.divider()
-        _move_stage_control(archived_df, "archived", "archived")
+        _move_stage_control(future_df, "future_participation", "future")
 
 with tab_attending:
     attending_df = df[df["stage"] == "attending"].copy()
@@ -204,6 +208,19 @@ with tab_attending:
         )
         st.divider()
         _move_stage_control(attending_df, "attending", "attending")
+
+with tab_archived:
+    archived_df = df[df["stage"] == "archived"].copy()
+    st.caption(f"{len(archived_df)} brand(s) closed out (declined or no longer pursuing).")
+    if archived_df.empty:
+        st.info("Nothing archived right now.")
+    else:
+        st.dataframe(
+            archived_df[PIPELINE_VIEW_COLUMNS], width='stretch', hide_index=True,
+            height=min(500, 40 + 35 * len(archived_df)),
+        )
+        st.divider()
+        _move_stage_control(archived_df, "archived", "archived")
 
 # ---------------------------------------------------------------------------
 # Tab: Add one email

@@ -37,12 +37,13 @@ OUTCOME_LABELS = {
 }
 REPLIED_OUTCOMES = {"replied", "declined", "meeting_booked"}
 
-STAGES = ["new", "in_communication", "archived", "attending"]
+STAGES = ["new", "in_communication", "future_participation", "attending", "archived"]
 STAGE_LABELS = {
     "new": "New brand",
     "in_communication": "In communication",
-    "archived": "Archived",
+    "future_participation": "Future participation",
     "attending": "Attending",
+    "archived": "Archived",
 }
 
 COLUMNS = [
