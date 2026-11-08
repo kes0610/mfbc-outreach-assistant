@@ -69,13 +69,21 @@ else:
     } if company.strip() else None
 
 if brand_info:
-    chance = db.estimate_reply_chance(brand_info, df)
-    c1, c2 = st.columns([1, 3])
-    c1.metric("Rough reply chance", chance["label"])
-    c2.caption(
-        f"Rule of thumb, not a trained model ({chance['base_n']} labeled outcome(s) so far, "
-        f"need {db.MODEL_MIN_N}+). " + " · ".join(chance["reasons"])
-    )
+    if source_mode == "Pick from New brand":
+        chance = db.estimate_reply_chance(brand_info, df)
+        c1, c2 = st.columns([1, 3])
+        c1.metric("Rough reply chance", chance["label"])
+        c2.caption(
+            f"Rule of thumb, not a trained model ({chance['base_n']} labeled outcome(s) so far, "
+            f"need {db.MODEL_MIN_N}+). " + " · ".join(chance["reasons"])
+        )
+    else:
+        st.caption(
+            "No reply-chance estimate yet for a brand that isn't logged — switch to "
+            "AI-generated drafting mode below and Claude will research this company's size "
+            "and public profile to give a grounded estimate, instead of guessing from "
+            "connection checkboxes."
+        )
 
     st.subheader("2. Draft it")
     draft_mode = st.radio(
