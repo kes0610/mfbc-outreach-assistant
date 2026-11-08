@@ -129,19 +129,6 @@ button[data-baseweb="tab"] {
     background-color: #A61C33 !important;
 }
 
-/* Outreach History's "Edit table" is the 7th of 8 tabs (New brand, In
-   communication, Future participation, Attending, Archived, Add one
-   email, Edit table, Import) — give it a filled pill so it stands out
-   even scrolled mid-strip, since it's the main way to edit/delete rows.
-   Tied to that tab order; update the index if the tabs are reordered. */
-button[data-baseweb="tab"]:nth-of-type(7) {
-    background-color: #A61C33 !important;
-    border-radius: 4px 4px 0 0;
-}
-button[data-baseweb="tab"]:nth-of-type(7) p {
-    color: #FFFFFF !important;
-}
-
 /* The data editor's built-in "Delete row(s)" toolbar icon is tiny and
    grey by default — recolor it red and give it a hover background so
    it reads as the higher-stakes action it is. */

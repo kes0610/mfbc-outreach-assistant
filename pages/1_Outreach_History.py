@@ -12,9 +12,6 @@ inject_global_css()
 
 page_header("Outreach History", "Every brand, from first idea to confirmed attendee.")
 
-EDITOR_KEY = "history_editor"
-
-
 def _to_date(value):
     if value in (None, "", "None") or (isinstance(value, float) and pd.isna(value)):
         return None
@@ -81,7 +78,7 @@ if active_batch:
 
 st.divider()
 
-tab_new, tab_comm, tab_future, tab_attending, tab_archived, tab_add, tab_edit, tab_import = st.tabs(
+tab_new, tab_comm, tab_future, tab_attending, tab_archived, tab_add, tab_import = st.tabs(
     [
         "🆕 New brand",
         "💬 In communication",
@@ -89,7 +86,6 @@ tab_new, tab_comm, tab_future, tab_attending, tab_archived, tab_add, tab_edit, t
         "🎤 Attending",
         "📁 Archived",
         "➕ Add one email",
-        "📊 Edit table",
         "📥 Import CSV / Excel",
     ]
 )
@@ -121,6 +117,128 @@ def _move_stage_control(stage_df, current_stage, key_prefix):
             st.rerun()
 
 
+EDIT_COLUMN_CONFIG = {
+    "id": st.column_config.NumberColumn("ID"),
+    "company": st.column_config.TextColumn("Company", required=True),
+    "contact_name": st.column_config.TextColumn("Contact name"),
+    "contact_role": st.column_config.TextColumn("Contact role"),
+    "ask_type": st.column_config.SelectboxColumn("Ask type", options=db.ASK_TYPES),
+    "date_sent": st.column_config.DateColumn("Date sent"),
+    "sender": st.column_config.TextColumn("Sender"),
+    "is_follow_up": st.column_config.CheckboxColumn("Follow-up?"),
+    "has_uw_mfbc_connection": st.column_config.CheckboxColumn("UW/MFBC connection?"),
+    "has_prior_relationship": st.column_config.CheckboxColumn("Prior relationship?"),
+    "email_text": st.column_config.TextColumn("Email text"),
+    "notes": st.column_config.TextColumn("Notes"),
+    "outcome": st.column_config.SelectboxColumn("Outcome", options=db.OUTCOMES),
+    "reply_date": st.column_config.DateColumn("Reply date"),
+    "stage": st.column_config.SelectboxColumn("Stage", options=db.STAGES, required=True),
+}
+
+
+def _inline_stage_editor(df, stage, key_prefix):
+    """A spreadsheet-style editor scoped to one stage's rows, so editing a
+    brand doesn't require leaving the tab it's already shown in."""
+    editor_key = f"{key_prefix}_inline_editor"
+    delete_key = f"{key_prefix}_pending_deletes"
+
+    stage_df = df[df["stage"] == stage].copy()
+    display_df = stage_df.copy()
+    display_df["date_sent"] = display_df["date_sent"].apply(_to_date)
+    display_df["reply_date"] = display_df["reply_date"].apply(_to_date)
+    display_df = display_df.drop(columns=["created_at", "updated_at"])
+
+    pending_deletes = st.session_state.get(delete_key)
+
+    if pending_deletes:
+        pending_rows = display_df[display_df["id"].isin(pending_deletes)]
+        st.warning(
+            f"⚠️ You removed {len(pending_deletes)} row(s): "
+            + ", ".join(pending_rows["company"].fillna("(no company)").tolist())
+        )
+        c1, c2 = st.columns(2)
+        if c1.button("Confirm delete", type="primary", key=f"{key_prefix}_confirm_delete"):
+            db.delete_records(pending_deletes)
+            _saved_now()
+            del st.session_state[delete_key]
+            if editor_key in st.session_state:
+                del st.session_state[editor_key]
+            st.rerun()
+        if c2.button("Keep row(s) (undo)", key=f"{key_prefix}_undo_delete"):
+            del st.session_state[delete_key]
+            if editor_key in st.session_state:
+                del st.session_state[editor_key]
+            st.rerun()
+        return
+
+    st.caption("Edit cells directly, or add a new row at the bottom. Changes save automatically.")
+    st.data_editor(
+        display_df,
+        key=editor_key,
+        num_rows="dynamic",
+        hide_index=True,
+        width='stretch',
+        disabled=["id"],
+        column_config=EDIT_COLUMN_CONFIG,
+    )
+
+    state = st.session_state.get(editor_key, {})
+    edited_rows = state.get("edited_rows", {})
+    added_rows = state.get("added_rows", [])
+    deleted_rows = state.get("deleted_rows", [])
+
+    if deleted_rows:
+        ids = [int(display_df.iloc[pos]["id"]) for pos in deleted_rows]
+        st.session_state[delete_key] = ids
+        st.rerun()
+
+    changed = False
+
+    for pos, changes in edited_rows.items():
+        row_id = int(display_df.iloc[int(pos)]["id"])
+        base = display_df.iloc[int(pos)].to_dict()
+        base.update(changes)
+        record = {c: base.get(c) for c in db.EDITABLE_COLUMNS}
+        record["date_sent"] = _to_iso(record.get("date_sent"))
+        record["reply_date"] = _to_iso(record.get("reply_date"))
+        for flag in ("is_follow_up", "has_uw_mfbc_connection", "has_prior_relationship"):
+            record[flag] = int(bool(record.get(flag)))
+        db.update_record(row_id, record)
+        changed = True
+
+    for new_row in added_rows:
+        if not new_row.get("company"):
+            continue
+        record = {c: new_row.get(c) for c in db.EDITABLE_COLUMNS}
+        record["date_sent"] = _to_iso(record.get("date_sent"))
+        record["reply_date"] = _to_iso(record.get("reply_date"))
+        for flag in ("is_follow_up", "has_uw_mfbc_connection", "has_prior_relationship"):
+            record[flag] = int(bool(record.get(flag)))
+        record.setdefault("ask_type", "other")
+        record.setdefault("outcome", "no_reply")
+        record["stage"] = new_row.get("stage") or stage
+        db.insert_record(record)
+        changed = True
+
+    if changed:
+        _saved_now()
+        del st.session_state[editor_key]
+        st.rerun()
+
+
+def _edit_toggle(df, stage, key_prefix):
+    """Renders the pencil button; returns True while that stage's inline
+    editor is open (so the caller can hide its normal read-only view)."""
+    editing_key = f"{key_prefix}_editing"
+    editing = st.session_state.get(editing_key, False)
+    if st.button("✏️ Edit" if not editing else "✅ Done editing", key=f"{key_prefix}_edit_toggle"):
+        st.session_state[editing_key] = not editing
+        st.rerun()
+    if editing:
+        _inline_stage_editor(df, stage, key_prefix)
+    return editing
+
+
 # ---------------------------------------------------------------------------
 # Pipeline stage tabs
 # ---------------------------------------------------------------------------
@@ -131,54 +249,58 @@ with tab_new:
         f"{len(new_df)} brand(s) not yet contacted. Pick one to draft an outreach email "
         "and see a rough reply-chance estimate before you send."
     )
-    if new_df.empty:
-        st.info("Nothing in New brand right now.")
-    else:
-        st.dataframe(
-            new_df[["company", "sender", "contact_name", "ask_type", "notes"]],
-            width='stretch',
-            hide_index=True,
-            height=min(400, 40 + 35 * len(new_df)),
-        )
-        options = {f"{row.company} (id {row.id})": row.id for row in new_df.itertuples()}
-        choice = st.selectbox("Choose a brand", list(options.keys()), key="new_brand_choice")
-        if choice:
-            target_id = options[choice]
-            target = new_df[new_df["id"] == target_id].iloc[0].to_dict()
-            chance = db.estimate_reply_chance(target, df)
-            c1, c2 = st.columns([1, 2])
-            with c1:
-                st.metric("Rough reply chance", chance["label"])
-            with c2:
-                st.caption(
-                    "Based on a simple rule of thumb, not a trained model — only "
-                    f"{chance['base_n']} labeled outcome(s) logged so far (need {db.MODEL_MIN_N}+ "
-                    "for a real statistical model). Club-wide so far: "
-                    + (
-                        f"{chance['base_replied']}/{chance['base_n']} replied."
-                        if chance["base_n"]
-                        else "no labeled outcomes yet."
+    editing = _edit_toggle(df, "new", "new")
+    if not editing:
+        if new_df.empty:
+            st.info("Nothing in New brand right now.")
+        else:
+            st.dataframe(
+                new_df[["company", "sender", "contact_name", "ask_type", "notes"]],
+                width='stretch',
+                hide_index=True,
+                height=min(400, 40 + 35 * len(new_df)),
+            )
+            options = {f"{row.company} (id {row.id})": row.id for row in new_df.itertuples()}
+            choice = st.selectbox("Choose a brand", list(options.keys()), key="new_brand_choice")
+            if choice:
+                target_id = options[choice]
+                target = new_df[new_df["id"] == target_id].iloc[0].to_dict()
+                chance = db.estimate_reply_chance(target, df)
+                c1, c2 = st.columns([1, 2])
+                with c1:
+                    st.metric("Rough reply chance", chance["label"])
+                with c2:
+                    st.caption(
+                        "Based on a simple rule of thumb, not a trained model — only "
+                        f"{chance['base_n']} labeled outcome(s) logged so far (need {db.MODEL_MIN_N}+ "
+                        "for a real statistical model). Club-wide so far: "
+                        + (
+                            f"{chance['base_replied']}/{chance['base_n']} replied."
+                            if chance["base_n"]
+                            else "no labeled outcomes yet."
+                        )
                     )
-                )
-                st.caption(" · ".join(chance["reasons"]))
-            if st.button("✉️ Draft email for this brand", type="primary"):
-                st.session_state["draft_target_id"] = int(target_id)
-                st.switch_page("pages/2_Draft_Email.py")
-            st.divider()
-            _move_stage_control(new_df, "new", "new")
+                    st.caption(" · ".join(chance["reasons"]))
+                if st.button("✉️ Draft email for this brand", type="primary"):
+                    st.session_state["draft_target_id"] = int(target_id)
+                    st.switch_page("pages/2_Draft_Email.py")
+                st.divider()
+                _move_stage_control(new_df, "new", "new")
 
 with tab_comm:
     comm_df = df[df["stage"] == "in_communication"].copy()
     st.caption(f"{len(comm_df)} brand(s) sent and waiting on / discussing a response.")
-    if comm_df.empty:
-        st.info("Nothing in In communication right now.")
-    else:
-        st.dataframe(
-            comm_df[PIPELINE_VIEW_COLUMNS], width='stretch', hide_index=True,
-            height=min(500, 40 + 35 * len(comm_df)),
-        )
-        st.divider()
-        _move_stage_control(comm_df, "in_communication", "comm")
+    editing = _edit_toggle(df, "in_communication", "comm")
+    if not editing:
+        if comm_df.empty:
+            st.info("Nothing in In communication right now.")
+        else:
+            st.dataframe(
+                comm_df[PIPELINE_VIEW_COLUMNS], width='stretch', hide_index=True,
+                height=min(500, 40 + 35 * len(comm_df)),
+            )
+            st.divider()
+            _move_stage_control(comm_df, "in_communication", "comm")
 
 with tab_future:
     future_df = df[df["stage"] == "future_participation"].copy()
@@ -186,41 +308,47 @@ with tab_future:
         f"{len(future_df)} brand(s) that said yes in some form, but for a later semester or "
         "event rather than right now — follow up with them when the timing's right."
     )
-    if future_df.empty:
-        st.info("Nothing in Future participation right now.")
-    else:
-        st.dataframe(
-            future_df[PIPELINE_VIEW_COLUMNS], width='stretch', hide_index=True,
-            height=min(500, 40 + 35 * len(future_df)),
-        )
-        st.divider()
-        _move_stage_control(future_df, "future_participation", "future")
+    editing = _edit_toggle(df, "future_participation", "future")
+    if not editing:
+        if future_df.empty:
+            st.info("Nothing in Future participation right now.")
+        else:
+            st.dataframe(
+                future_df[PIPELINE_VIEW_COLUMNS], width='stretch', hide_index=True,
+                height=min(500, 40 + 35 * len(future_df)),
+            )
+            st.divider()
+            _move_stage_control(future_df, "future_participation", "future")
 
 with tab_attending:
     attending_df = df[df["stage"] == "attending"].copy()
     st.caption(f"{len(attending_df)} brand(s) confirmed for this semester's event.")
-    if attending_df.empty:
-        st.info("Nothing confirmed as attending yet.")
-    else:
-        st.dataframe(
-            attending_df[PIPELINE_VIEW_COLUMNS], width='stretch', hide_index=True,
-            height=min(500, 40 + 35 * len(attending_df)),
-        )
-        st.divider()
-        _move_stage_control(attending_df, "attending", "attending")
+    editing = _edit_toggle(df, "attending", "attending")
+    if not editing:
+        if attending_df.empty:
+            st.info("Nothing confirmed as attending yet.")
+        else:
+            st.dataframe(
+                attending_df[PIPELINE_VIEW_COLUMNS], width='stretch', hide_index=True,
+                height=min(500, 40 + 35 * len(attending_df)),
+            )
+            st.divider()
+            _move_stage_control(attending_df, "attending", "attending")
 
 with tab_archived:
     archived_df = df[df["stage"] == "archived"].copy()
     st.caption(f"{len(archived_df)} brand(s) closed out (declined or no longer pursuing).")
-    if archived_df.empty:
-        st.info("Nothing archived right now.")
-    else:
-        st.dataframe(
-            archived_df[PIPELINE_VIEW_COLUMNS], width='stretch', hide_index=True,
-            height=min(500, 40 + 35 * len(archived_df)),
-        )
-        st.divider()
-        _move_stage_control(archived_df, "archived", "archived")
+    editing = _edit_toggle(df, "archived", "archived")
+    if not editing:
+        if archived_df.empty:
+            st.info("Nothing archived right now.")
+        else:
+            st.dataframe(
+                archived_df[PIPELINE_VIEW_COLUMNS], width='stretch', hide_index=True,
+                height=min(500, 40 + 35 * len(archived_df)),
+            )
+            st.divider()
+            _move_stage_control(archived_df, "archived", "archived")
 
 # ---------------------------------------------------------------------------
 # Tab: Add one email
@@ -278,110 +406,6 @@ with tab_add:
                 else:
                     st.success(f"Added outreach to {record['company']}.")
                 st.rerun()
-
-# ---------------------------------------------------------------------------
-# Tab: Edit table (spreadsheet-style)
-# ---------------------------------------------------------------------------
-
-with tab_edit:
-    st.caption("Edit cells directly, or add a new row at the bottom. Changes save automatically.")
-
-    display_df = df.copy()
-    display_df["date_sent"] = display_df["date_sent"].apply(_to_date)
-    display_df["reply_date"] = display_df["reply_date"].apply(_to_date)
-    display_df = display_df.drop(columns=["created_at", "updated_at"])
-
-    pending_deletes = st.session_state.get("pending_delete_ids")
-
-    if pending_deletes:
-        pending_rows = display_df[display_df["id"].isin(pending_deletes)]
-        st.warning(
-            f"⚠️ You removed {len(pending_deletes)} row(s) in the table below: "
-            + ", ".join(pending_rows["company"].fillna("(no company)").tolist())
-        )
-        c1, c2 = st.columns(2)
-        if c1.button("Confirm delete", type="primary"):
-            db.delete_records(pending_deletes)
-            _saved_now()
-            del st.session_state["pending_delete_ids"]
-            if EDITOR_KEY in st.session_state:
-                del st.session_state[EDITOR_KEY]
-            st.rerun()
-        if c2.button("Keep row(s) (undo)"):
-            del st.session_state["pending_delete_ids"]
-            if EDITOR_KEY in st.session_state:
-                del st.session_state[EDITOR_KEY]
-            st.rerun()
-    else:
-        edited = st.data_editor(
-            display_df,
-            key=EDITOR_KEY,
-            num_rows="dynamic",
-            hide_index=True,
-            width='stretch',
-            disabled=["id"],
-            column_config={
-                "id": st.column_config.NumberColumn("ID"),
-                "company": st.column_config.TextColumn("Company", required=True),
-                "contact_name": st.column_config.TextColumn("Contact name"),
-                "contact_role": st.column_config.TextColumn("Contact role"),
-                "ask_type": st.column_config.SelectboxColumn("Ask type", options=db.ASK_TYPES),
-                "date_sent": st.column_config.DateColumn("Date sent"),
-                "sender": st.column_config.TextColumn("Sender"),
-                "is_follow_up": st.column_config.CheckboxColumn("Follow-up?"),
-                "has_uw_mfbc_connection": st.column_config.CheckboxColumn("UW/MFBC connection?"),
-                "has_prior_relationship": st.column_config.CheckboxColumn("Prior relationship?"),
-                "email_text": st.column_config.TextColumn("Email text"),
-                "notes": st.column_config.TextColumn("Notes"),
-                "outcome": st.column_config.SelectboxColumn("Outcome", options=db.OUTCOMES),
-                "reply_date": st.column_config.DateColumn("Reply date"),
-                "stage": st.column_config.SelectboxColumn(
-                    "Stage", options=db.STAGES, required=True,
-                ),
-            },
-        )
-
-        state = st.session_state.get(EDITOR_KEY, {})
-        edited_rows = state.get("edited_rows", {})
-        added_rows = state.get("added_rows", [])
-        deleted_rows = state.get("deleted_rows", [])
-
-        if deleted_rows:
-            ids = [int(display_df.iloc[pos]["id"]) for pos in deleted_rows]
-            st.session_state["pending_delete_ids"] = ids
-            st.rerun()
-
-        changed = False
-
-        for pos, changes in edited_rows.items():
-            row_id = int(display_df.iloc[int(pos)]["id"])
-            base = display_df.iloc[int(pos)].to_dict()
-            base.update(changes)
-            record = {c: base.get(c) for c in db.EDITABLE_COLUMNS}
-            record["date_sent"] = _to_iso(record.get("date_sent"))
-            record["reply_date"] = _to_iso(record.get("reply_date"))
-            for flag in ("is_follow_up", "has_uw_mfbc_connection", "has_prior_relationship"):
-                record[flag] = int(bool(record.get(flag)))
-            db.update_record(row_id, record)
-            changed = True
-
-        for new_row in added_rows:
-            if not new_row.get("company"):
-                continue
-            record = {c: new_row.get(c) for c in db.EDITABLE_COLUMNS}
-            record["date_sent"] = _to_iso(record.get("date_sent"))
-            record["reply_date"] = _to_iso(record.get("reply_date"))
-            for flag in ("is_follow_up", "has_uw_mfbc_connection", "has_prior_relationship"):
-                record[flag] = int(bool(record.get(flag)))
-            record.setdefault("ask_type", "other")
-            record.setdefault("outcome", "no_reply")
-            db.insert_record(record)
-            changed = True
-
-        if changed:
-            _saved_now()
-            del st.session_state[EDITOR_KEY]
-            st.rerun()
 
 # ---------------------------------------------------------------------------
 # Tab: CSV / Excel import
