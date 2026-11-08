@@ -118,16 +118,20 @@ if brand_info:
                 "`export ANTHROPIC_API_KEY=sk-ant-...`"
             )
         else:
+            st.caption(
+                "Claude will search the web for real public info about this company, weigh it "
+                "against MFBC's own outreach history, and draft an email explaining specifically "
+                "why they'd want to be part of MFBC — not a generic template."
+            )
             extra_info = st.text_area(
-                "Paste any public information you know about them (website copy, recent "
-                "news, their Instagram bio, etc.) — the draft will only use what's here "
-                "plus the fields above.",
+                "Anything else you already know about them? (optional — Claude researches the "
+                "rest itself)",
                 key="extra_public_info",
             )
-            if st.button("Generate AI draft", type="primary"):
-                with st.spinner("Drafting..."):
+            if st.button("Research & draft with AI", type="primary"):
+                with st.spinner("Researching the company and drafting..."):
                     try:
-                        result = drafting.generate_draft(brand_info, extra_info)
+                        result = drafting.research_and_draft(brand_info, df, extra_info)
                         st.session_state["ai_draft_result"] = result
                         st.session_state["ai_draft_version"] = st.session_state.get("ai_draft_version", 0) + 1
                     except Exception as exc:
@@ -135,6 +139,13 @@ if brand_info:
 
             result = st.session_state.get("ai_draft_result")
             if result:
+                if result.get("chance_label"):
+                    c1, c2 = st.columns([1, 3])
+                    c1.metric("Researched reply chance", result["chance_label"])
+                    c2.caption(result["chance_reasoning"])
+                elif result.get("chance_reasoning"):
+                    st.caption(result["chance_reasoning"])
+
                 edited_draft = st.text_area(
                     "Draft email", value=result["draft"], height=280,
                     key=f"ai_draft_text_{st.session_state.get('ai_draft_version', 0)}",
