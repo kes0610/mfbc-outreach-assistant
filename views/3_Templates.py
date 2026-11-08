@@ -20,7 +20,7 @@ def _saved_now():
 
 
 if "last_saved_templates" in st.session_state:
-    st.caption(f"✅ Saved at {st.session_state['last_saved_templates']}")
+    st.caption(f"Saved at {st.session_state['last_saved_templates']}")
 
 st.divider()
 st.subheader("Templates")
@@ -41,7 +41,7 @@ for row in templates.itertuples():
                 _saved_now()
                 st.rerun()
 
-with st.expander("➕ Add a new template"):
+with st.expander("Add a new template"):
     with st.form("new_template", clear_on_submit=True):
         name = st.text_input("Name")
         body = st.text_area(

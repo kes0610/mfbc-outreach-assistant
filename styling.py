@@ -117,6 +117,47 @@ h2, h3 {
     border-color: #7E1427;
 }
 
+/* Top navigation (st.navigation position="top") */
+[data-testid="stHeader"] {
+    background-color: #FFFFFF;
+    border-bottom: 1px solid #D8D3C6;
+}
+[data-testid="stTopNavLink"] {
+    font-family: 'Inter', sans-serif !important;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    font-size: 0.8rem !important;
+    letter-spacing: 0.04em;
+    color: #1A1A1A !important;
+}
+[data-testid="stTopNavLink"] span {
+    color: inherit !important;
+}
+[data-testid="stTopNavLink"][aria-current="page"] {
+    color: #A61C33 !important;
+    border-bottom: 2px solid #A61C33;
+}
+
+/* Alerts — muted parchment callouts with a colored left rule, instead of
+   Streamlit's bright default info/warning/success/error fills. */
+[data-testid="stAlertContainer"] {
+    background-color: #FAF8F4 !important;
+    border-radius: 2px;
+    border: 1px solid #E5E1D8;
+}
+[data-testid="stAlertContentInfo"],
+[data-testid="stAlertContentWarning"],
+[data-testid="stAlertContentSuccess"],
+[data-testid="stAlertContentError"] {
+    color: #1A1A1A !important;
+    border-left: 3px solid #1A1A1A;
+    padding-left: 12px;
+}
+[data-testid="stAlertContentWarning"],
+[data-testid="stAlertContentError"] {
+    border-left-color: #A61C33;
+}
+
 /* Tabs */
 button[data-baseweb="tab"] {
     font-family: 'Inter', sans-serif;

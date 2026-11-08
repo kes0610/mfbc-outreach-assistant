@@ -57,10 +57,10 @@ for w in summary["warnings"]:
 top_left, top_right = st.columns([3, 1])
 with top_left:
     if "last_saved" in st.session_state:
-        st.caption(f"✅ Saved at {st.session_state['last_saved']}")
+        st.caption(f"Saved at {st.session_state['last_saved']}")
 with top_right:
     st.download_button(
-        "⬇️ Export to CSV",
+        "Export to CSV",
         data=db.export_csv_bytes(df),
         file_name=f"mfbc_outreach_export_{date.today().isoformat()}.csv",
         mime="text/csv",
@@ -69,7 +69,7 @@ with top_right:
 
 active_batch = db.latest_active_batch_id()
 if active_batch:
-    if st.button("↩️ Undo last import", help="Removes every row from the most recent import."):
+    if st.button("Undo last import", help="Removes every row from the most recent import."):
         removed = db.undo_import(active_batch)
         _saved_now()
         st.success(f"Removed {removed} row(s) from the last import.")
@@ -79,13 +79,13 @@ st.divider()
 
 tab_new, tab_comm, tab_future, tab_attending, tab_archived, tab_add, tab_import = st.tabs(
     [
-        "🆕 New brand",
-        "💬 In communication",
-        "🔮 Future participation",
-        "🎤 Attending",
-        "📁 Archived",
-        "➕ Add one email",
-        "📥 Import CSV / Excel",
+        "New brand",
+        "In communication",
+        "Future participation",
+        "Attending",
+        "Archived",
+        "Add one email",
+        "Import CSV / Excel",
     ]
 )
 
@@ -168,7 +168,7 @@ def _inline_stage_editor(df, stage, key_prefix):
     if pending_deletes:
         pending_rows = display_df[display_df["id"].isin(pending_deletes)]
         st.warning(
-            f"⚠️ You removed {len(pending_deletes)} row(s): "
+            f"You removed {len(pending_deletes)} row(s): "
             + ", ".join(pending_rows["company"].fillna("(no company)").tolist())
         )
         c1, c2 = st.columns(2)
@@ -246,7 +246,7 @@ def _edit_toggle(df, stage, key_prefix):
     editor is open (so the caller can hide its normal read-only view)."""
     editing_key = f"{key_prefix}_editing"
     editing = st.session_state.get(editing_key, False)
-    if st.button("✏️ Edit" if not editing else "✅ Done editing", key=f"{key_prefix}_edit_toggle"):
+    if st.button("Edit" if not editing else "Done editing", key=f"{key_prefix}_edit_toggle"):
         st.session_state[editing_key] = not editing
         st.rerun()
     if editing:
@@ -291,7 +291,7 @@ with tab_new:
                         )
                     )
                     st.caption(" · ".join(chance["reasons"]))
-                if st.button("✉️ Draft email for this brand", type="primary"):
+                if st.button("Draft email for this brand", type="primary"):
                     st.session_state["draft_target_id"] = int(target_id)
                     st.switch_page("views/2_Draft_Email.py")
 
