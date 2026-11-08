@@ -1,12 +1,14 @@
-"""Shared branded styling for every page — warm editorial look pulled from
-MFBC's own Instagram (bold circular wordmark, autumnal palette), instead of
-Streamlit's generic defaults."""
+"""Shared branded styling for every page — an editorial, black-and-white-
+photography-and-red-accent look pulled from a full read of MFBC's own
+Instagram (bold circular wordmark, all-caps display headers, a confident
+red used across their convention/sponsor graphics), instead of Streamlit's
+generic defaults or a generic "cozy fall" palette."""
 
 import streamlit as st
 
 CSS = """
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 html, body, [class*="css"] {
     font-family: 'Inter', sans-serif;
@@ -15,18 +17,26 @@ h1, h2, h3, .mfbc-display {
     font-family: 'Fraunces', serif !important;
     font-weight: 600 !important;
     letter-spacing: -0.01em;
-    color: #2B2420 !important;
+    color: #1A1A1A !important;
+}
+h2, h3 {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 1.1rem !important;
 }
 [data-testid="stAppViewContainer"] {
-    background: linear-gradient(180deg, #F8F4EA 0%, #F6F1E7 400px);
+    background: linear-gradient(180deg, #FFFFFF 0%, #FAF8F4 400px);
 }
 [data-testid="stSidebar"] {
-    background-color: #ECE0C9;
-    border-right: 1px solid #DCCBA3;
+    background-color: #EDEAE2;
+    border-right: 1px solid #D8D3C6;
 }
 [data-testid="stSidebar"] a, [data-testid="stSidebar"] span {
     font-family: 'Inter', sans-serif;
-    font-weight: 500;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.03em;
 }
 
 /* Branded header badge + wordmark */
@@ -41,8 +51,8 @@ h1, h2, h3, .mfbc-display {
     width: 52px;
     height: 52px;
     border-radius: 50%;
-    background: #2B2420;
-    color: #F6F1E7;
+    background: #1A1A1A;
+    color: #FFFFFF;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -50,64 +60,77 @@ h1, h2, h3, .mfbc-display {
     font-weight: 800;
     font-size: 14px;
     letter-spacing: 0.02em;
-    border: 3px solid #A8502E;
+    border: 3px solid #A61C33;
 }
 .mfbc-header-title {
     font-family: 'Fraunces', serif;
     font-weight: 600;
     font-size: 2rem;
-    color: #2B2420;
+    color: #1A1A1A;
     line-height: 1.1;
     margin: 0;
 }
 .mfbc-header-subtitle {
     font-family: 'Inter', sans-serif;
-    color: #6B5D4F;
+    color: #6B6B6B;
     font-size: 0.95rem;
     margin-top: 2px;
 }
 
 /* Metric cards */
 [data-testid="stMetric"] {
-    background-color: #FFFDF8;
-    border: 1px solid #E3D5B4;
-    border-radius: 10px;
+    background-color: #FFFFFF;
+    border: 1px solid #E5E1D8;
+    border-top: 3px solid #A61C33;
+    border-radius: 4px;
     padding: 14px 16px 10px 16px;
 }
 [data-testid="stMetricLabel"] {
     font-family: 'Inter', sans-serif;
-    font-weight: 600;
-    color: #6B5D4F;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    color: #6B6B6B;
 }
 [data-testid="stMetricValue"] {
     font-family: 'Fraunces', serif;
-    color: #A8502E;
+    color: #A61C33;
 }
 
 /* Buttons */
 .stButton > button, .stDownloadButton > button, .stFormSubmitButton > button {
-    border-radius: 8px;
-    border: 1px solid #A8502E;
-    font-weight: 600;
+    border-radius: 2px;
+    border: 1px solid #A61C33;
+    font-weight: 700;
     font-family: 'Inter', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-size: 0.85rem;
 }
 .stButton > button[kind="primary"], .stFormSubmitButton > button[kind="primary"] {
-    background-color: #A8502E;
-    border-color: #A8502E;
+    background-color: #A61C33;
+    border-color: #A61C33;
 }
 .stButton > button[kind="primary"]:hover, .stFormSubmitButton > button[kind="primary"]:hover {
-    background-color: #8A3F22;
-    border-color: #8A3F22;
+    background-color: #7E1427;
+    border-color: #7E1427;
 }
 
 /* Tabs */
 button[data-baseweb="tab"] {
     font-family: 'Inter', sans-serif;
-    font-weight: 600;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.03em;
+}
+[data-baseweb="tab-highlight"] {
+    background-color: #A61C33 !important;
 }
 
 hr {
-    border-color: #DCCBA3 !important;
+    border-color: #D8D3C6 !important;
 }
 </style>
 """

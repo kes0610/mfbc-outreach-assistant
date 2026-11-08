@@ -26,10 +26,12 @@ partnerships. Membership is open to UW-Madison students with at least a
 
 ## The flagship event: the fall convention
 
-MFBC's primary annual event is a fall convention featuring at least eight
-notable influencers and business leaders giving talks, followed by
-small-group coffee chats with attendees. This is the event outreach to
-speakers and sponsors is usually in service of.
+MFBC's primary annual event is a fall convention featuring a speaker
+panel, networking, flea-market-style pop-ups, and food & drink. This is
+the event outreach to speakers and sponsors is usually in service of.
+MFBC has held two conventions so far (see the confirmed speaker/partner
+list below) — each with roughly six to ten speakers plus a few
+goodie-bag/vendor sponsors.
 
 Past/aspirational speaker references include entrepreneur Danielle
 Bernstein (founder of WeWoreWhat) and Max Siegelman (founder of Siegelman
@@ -42,32 +44,66 @@ current planning, not be assumed from this file.
   Poppi.
 - MFBC has run flea-market pop-up events ("FLEA") as member-facing
   activities/vendor opportunities, per its Instagram (@the_mfbc).
-- MFBC held a convention at Union South Varsity Hall on 10/18/2026 ("MFBC
-  2026 Convention"), with a speaker panel, networking, flea-market-style
-  pop-ups, and food & drink, per its own Instagram recap post.
+- MFBC has also run a smaller, standalone "MFBC Speaker Series" (separate
+  from the annual convention, open to non-members) — e.g. a talk with
+  Chelsea Parke Goles, founder & CEO of Parke.
+- MFBC runs a "Career Series" (fashion marketing, fashion journalism,
+  fashion styling sessions) and features individual members' achievements
+  (e.g. a member attending Vogue Summer School) on its Instagram.
 
-## Confirmed past convention speakers & partners (from @the_mfbc, verify before use)
+## Confirmed past convention speakers & partners (from @the_mfbc, logged-in view, verify before use)
 
-Instagram only shows a limited number of posts without logging in, so this
-is not necessarily the complete list — just what's been confirmed there.
-Double-check names/titles against the actual post before stating them in a
-draft, since small text in a graphic can be misread.
+MFBC has held exactly two conventions so far. Small text in a graphic can
+be misread, so double-check an exact name/title against the actual post
+before stating it in a draft.
 
-- Mason Henderson & Rob Bowhan — August (listed as founder + a co-owner
-  role; confirm exact title). August is also in MFBC's own outreach log
-  (contact: Devyn Eder), so this is a brand with a real prior speaking
-  relationship, not a cold ask.
-- Rachel Kulacz — Shopbop (listed as a stylist assistant). Shopbop is also
-  already in MFBC's outreach log (contact: Zoe S).
-- Sarikka Raman — described as an NYC-based celebrity fashion stylist.
-- Aaron Basha (fine jewelry brand) — featured in an "Aaron Basha x MFBC:
-  The Convention" branded post, suggesting a sponsor/partner
-  collaboration rather than just a speaking slot.
+**Convention N°1 — "first-ever convention panel," November 7, 2025.**
+Preceded by a "WDT x MFBC Convention Weekend Welcome Party" (shopping &
+refreshments) on Thursday, November 6, 2025, at Wisconsin Design Team,
+417 State Street — Wisconsin Design Team (WDT) is a recurring MFBC
+collaborator/venue partner, not a one-off.
+- Jennifer Fisher — Owner, Jennifer Fisher Jewelry
+- Karen Tolchin — Co-owner, Current Home
+- Sami Elfus — PR & Influencer Manager, Colour Pop (ColourPop Cosmetics)
+- Lauren Maslauski — Beauty Director, "ICA Beauty" as captioned (verify
+  exact brand name before using it)
+- Regine Basha — CEO & Creative Director, Aaron Basha (fine jewelry)
+- Josh Kuhn — Chief Design Officer, Wisconsin Design Team
+- In-kind/goodie-bag sponsors: Press House NY (@presshouse_ny, tote
+  bags), Sunshine Sweets (@sunshinesweets.boca, candy favors), Dot Cakes
+  (desserts)
 
-This is useful for the reply-chance reasoning and drafting: a new brand
-that's a close peer of August, Shopbop, Aaron Basha, or an NYC
-fashion-stylist type has a real precedent of partnering with MFBC, which is
-a stronger, more honest signal than a generic "fashion industry" fit.
+**Convention N°2 — "MFBC 2026 Convention," Sunday, October 18, 2026,
+12–3pm, Union South Varsity Hall.**
+- Mason Henderson & Rob Bowhan — August (founder + a co-owner role,
+  captioned "curtain owner" — likely a stylized/misread title, verify).
+  August is also already in MFBC's own outreach log (contact: Devyn
+  Eder), so this is a brand with a real prior speaking relationship, not
+  a cold ask.
+- Rachel Kulacz — Shopbop, Stylist Assistant
+- Ashley Venerable-White — Shopbop, Photographer
+- Gordon Scott — Shopbop, Off-Figure Stylist
+  (Shopbop sent three team members to this convention — a notably deep
+  relationship. Shopbop is also already in MFBC's outreach log, contact
+  Zoe S.)
+- Sarikka Raman — NYC-based celebrity fashion stylist (freelance)
+- Georgie Dorfman — Founder and Creative Director, All My Love
+- Shan Hasbrook — Designer, Elwood Clothing
+- Sammi Tapper — Director of Operations, Special Projects, Vogue
+- Jamie Grossman & Sarah Benavides — Founder + Managing Partner, PRTNR
+  Recruiting
+- Jasmine Snow — Freelance Fashion Editor and Stylist
+- Sponsor: Aaron Basha again appeared, via an "Aaron Basha x MFBC: The
+  Convention" branded post — a repeat partner across both conventions.
+- Sponsor: Good Molecules (@goodmolecules) — swag-bag sponsor
+
+This is useful for reply-chance reasoning and drafting: a new brand close
+to Shopbop, August, Aaron Basha, Jennifer Fisher Jewelry, Current Home,
+Colour Pop, or an NYC/editorial fashion-stylist type has a real precedent
+of engaging with MFBC across one or both conventions — a stronger, more
+honest signal than a generic "fits the fashion industry" fit. Aaron Basha
+and Wisconsin Design Team in particular are repeat relationships, not
+one-offs.
 
 ## How this should be used in drafts
 
