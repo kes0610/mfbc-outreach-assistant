@@ -158,6 +158,33 @@ h2, h3 {
     border-left-color: #A61C33;
 }
 
+/* Streamlit shows a random whimsical icon (a runner, a cyclist, ...) in
+   the toolbar while the app is running — nothing to do with this app's
+   content. Hide it and overlay a plain branded spinner instead. */
+[data-testid="stStatusWidgetRunningIcon"] {
+    position: relative;
+}
+[data-testid="stStatusWidgetRunningManIcon"],
+[data-testid="stStatusWidgetNewYearsIcon"] {
+    visibility: hidden;
+}
+[data-testid="stStatusWidgetRunningIcon"]::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 16px;
+    height: 16px;
+    margin: -8px 0 0 -8px;
+    border: 2px solid #E5E1D8;
+    border-top-color: #A61C33;
+    border-radius: 50%;
+    animation: mfbc-spin 0.8s linear infinite;
+}
+@keyframes mfbc-spin {
+    to { transform: rotate(360deg); }
+}
+
 /* Tabs */
 button[data-baseweb="tab"] {
     font-family: 'Inter', sans-serif;

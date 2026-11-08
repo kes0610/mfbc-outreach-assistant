@@ -183,13 +183,33 @@ DEFAULT_TEMPLATE_NAME = "Standard outreach"
 DEFAULT_TEMPLATE_BODY = """Hi {contact_name},
 
 My name is {sender} and I'm reaching out on behalf of the Madison Fashion Business \
-Collective (MFBC) at UW-Madison. {reason}
+Collective (MFBC), a UW-Madison student organization that connects students with the \
+fashion, business, and media industries through guest speakers, networking events, and \
+our annual convention. {reason}
 
 Would you be open to connecting about this?
 
 Best,
 {sender}
 MFBC"""
+
+DEFAULT_FOLLOWUP_TEMPLATE_NAME = "Follow-up"
+DEFAULT_FOLLOWUP_TEMPLATE_BODY = """Hi {contact_name},
+
+Just wanted to follow up on my note below about {company} and MFBC (Madison Fashion \
+Business Collective) at UW-Madison — I know things get busy, so no worries if it slipped \
+through.
+
+Happy to answer any questions or find a time to connect if you're still interested.
+
+Best,
+{sender}
+MFBC"""
+
+DEFAULT_TEMPLATES = {
+    DEFAULT_TEMPLATE_NAME: DEFAULT_TEMPLATE_BODY,
+    DEFAULT_FOLLOWUP_TEMPLATE_NAME: DEFAULT_FOLLOWUP_TEMPLATE_BODY,
+}
 
 
 def seed_defaults(conn) -> None:
@@ -199,12 +219,13 @@ def seed_defaults(conn) -> None:
             "INSERT OR IGNORE INTO snippets (condition_key, label, text, updated_at) VALUES (?, ?, ?, ?)",
             (key, label, DEFAULT_SNIPPETS[key], now),
         )
-    has_template = conn.execute("SELECT COUNT(*) FROM templates").fetchone()[0]
-    if not has_template:
-        conn.execute(
-            "INSERT INTO templates (name, body, created_at, updated_at) VALUES (?, ?, ?, ?)",
-            (DEFAULT_TEMPLATE_NAME, DEFAULT_TEMPLATE_BODY, now, now),
-        )
+    existing_names = {row[0] for row in conn.execute("SELECT name FROM templates").fetchall()}
+    for name, body in DEFAULT_TEMPLATES.items():
+        if name not in existing_names:
+            conn.execute(
+                "INSERT INTO templates (name, body, created_at, updated_at) VALUES (?, ?, ?, ?)",
+                (name, body, now, now),
+            )
 
 
 @contextmanager
