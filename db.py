@@ -359,6 +359,15 @@ def update_record(record_id: int, record: dict) -> None:
         )
 
 
+def set_stage(record_id: int, stage: str) -> None:
+    now = _now()
+    with _connect() as conn:
+        conn.execute(
+            "UPDATE outreach SET stage = ?, updated_at = ? WHERE id = ?",
+            [stage, now, record_id],
+        )
+
+
 def delete_records(ids: list[int]) -> None:
     if not ids:
         return

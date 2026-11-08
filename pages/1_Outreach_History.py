@@ -98,6 +98,28 @@ PIPELINE_VIEW_COLUMNS = [
     "date_sent", "outcome", "notes",
 ]
 
+
+def _move_stage_control(stage_df, current_stage, key_prefix):
+    other_stages = [s for s in db.STAGES if s != current_stage]
+    options = {f"{row.company} (id {row.id})": row.id for row in stage_df.itertuples()}
+    c1, c2, c3 = st.columns([2, 2, 1])
+    with c1:
+        choice = st.selectbox("Move a brand", list(options.keys()), key=f"{key_prefix}_move_choice")
+    with c2:
+        target_stage = st.selectbox(
+            "To stage", other_stages, format_func=lambda s: db.STAGE_LABELS[s],
+            key=f"{key_prefix}_move_target",
+        )
+    with c3:
+        st.write("")
+        st.write("")
+        if st.button("Move", key=f"{key_prefix}_move_button", width='stretch'):
+            db.set_stage(options[choice], target_stage)
+            _saved_now()
+            st.success(f"Moved {choice.split(' (id')[0]} to {db.STAGE_LABELS[target_stage]}.")
+            st.rerun()
+
+
 # ---------------------------------------------------------------------------
 # Pipeline stage tabs
 # ---------------------------------------------------------------------------
@@ -141,6 +163,8 @@ with tab_new:
             if st.button("✉️ Draft email for this brand", type="primary"):
                 st.session_state["draft_target_id"] = int(target_id)
                 st.switch_page("pages/2_Draft_Email.py")
+            st.divider()
+            _move_stage_control(new_df, "new", "new")
 
 with tab_comm:
     comm_df = df[df["stage"] == "in_communication"].copy()
@@ -152,6 +176,8 @@ with tab_comm:
             comm_df[PIPELINE_VIEW_COLUMNS], width='stretch', hide_index=True,
             height=min(500, 40 + 35 * len(comm_df)),
         )
+        st.divider()
+        _move_stage_control(comm_df, "in_communication", "comm")
 
 with tab_archived:
     archived_df = df[df["stage"] == "archived"].copy()
@@ -163,6 +189,8 @@ with tab_archived:
             archived_df[PIPELINE_VIEW_COLUMNS], width='stretch', hide_index=True,
             height=min(500, 40 + 35 * len(archived_df)),
         )
+        st.divider()
+        _move_stage_control(archived_df, "archived", "archived")
 
 with tab_attending:
     attending_df = df[df["stage"] == "attending"].copy()
@@ -174,11 +202,8 @@ with tab_attending:
             attending_df[PIPELINE_VIEW_COLUMNS], width='stretch', hide_index=True,
             height=min(500, 40 + 35 * len(attending_df)),
         )
-
-st.caption(
-    "Move a brand between stages (New brand / In communication / Archived / Attending) "
-    "from the **Edit table** tab below."
-)
+        st.divider()
+        _move_stage_control(attending_df, "attending", "attending")
 
 # ---------------------------------------------------------------------------
 # Tab: Add one email

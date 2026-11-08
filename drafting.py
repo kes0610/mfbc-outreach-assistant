@@ -132,7 +132,7 @@ Research this company with web search, then produce the three sections exactly a
         model=MODEL,
         max_tokens=2048,
         system=SYSTEM_PROMPT_RESEARCH,
-        tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 5}],
+        tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 10}],
         messages=[{"role": "user", "content": user_message}],
     )
     text = "".join(block.text for block in response.content if block.type == "text")
