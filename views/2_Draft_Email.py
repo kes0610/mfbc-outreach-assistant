@@ -68,6 +68,14 @@ else:
         "sender": sender.strip() or None,
     } if company.strip() else None
 
+    # Once this manually-entered brand has been saved once, reuse that same
+    # row for later saves in this session instead of creating a duplicate
+    # every time "Save draft" / "Mark as sent" is clicked.
+    if brand_info and st.session_state.get("manual_entry_saved_company") == brand_info["company"]:
+        brand_info["id"] = st.session_state.get("manual_entry_saved_id")
+        for field in ("ai_chance_label", "ai_chance_reasoning", "ai_relied_on"):
+            brand_info[field] = st.session_state.get(f"manual_entry_saved_{field}")
+
 if brand_info:
     if source_mode == "Pick from New brand":
         chance = db.estimate_reply_chance(brand_info, df)
@@ -94,6 +102,7 @@ if brand_info:
 
     edited_draft = None
     relied_on = None
+    result = None
 
     if draft_mode == "Free template (no cost)":
         templates = db.fetch_templates()
@@ -161,6 +170,37 @@ if brand_info:
                 )
                 relied_on = result["relied_on"]
 
+    def _save_record(extra_fields=None):
+        """Insert or update this brand's row, carrying the draft text and any
+        AI research along with it. For a manually-entered brand, remembers
+        the row it just created so later saves in this session update that
+        same row instead of creating a duplicate every time."""
+        record = {c: brand_info.get(c) for c in db.EDITABLE_COLUMNS}
+        record["email_text"] = edited_draft
+        if result:
+            record["ai_chance_label"] = result.get("chance_label")
+            record["ai_chance_reasoning"] = result.get("chance_reasoning") or None
+            record["ai_relied_on"] = result.get("relied_on") or None
+        else:
+            record["ai_chance_label"] = brand_info.get("ai_chance_label")
+            record["ai_chance_reasoning"] = brand_info.get("ai_chance_reasoning")
+            record["ai_relied_on"] = brand_info.get("ai_relied_on")
+        if extra_fields:
+            record.update(extra_fields)
+
+        if brand_info.get("id") is not None:
+            db.update_record(int(brand_info["id"]), record)
+            return int(brand_info["id"])
+
+        record.setdefault("outcome", None)
+        new_id = db.insert_record(record)
+        st.session_state["manual_entry_saved_id"] = new_id
+        st.session_state["manual_entry_saved_company"] = brand_info["company"]
+        st.session_state["manual_entry_saved_ai_chance_label"] = record["ai_chance_label"]
+        st.session_state["manual_entry_saved_ai_chance_reasoning"] = record["ai_chance_reasoning"]
+        st.session_state["manual_entry_saved_ai_relied_on"] = record["ai_relied_on"]
+        return new_id
+
     if edited_draft:
         if relied_on:
             with st.expander("What this draft relied on"):
@@ -174,26 +214,13 @@ if brand_info:
         c1, c2 = st.columns(2)
         with c1:
             if st.button("Save draft to this brand's record"):
-                record = {c: brand_info.get(c) for c in db.EDITABLE_COLUMNS}
-                record["email_text"] = edited_draft
-                if brand_info.get("id") is not None:
-                    db.update_record(int(brand_info["id"]), record)
-                else:
-                    record.setdefault("outcome", None)
-                    db.insert_record(record)
+                _save_record()
                 st.success("Draft saved.")
                 st.rerun()
         with c2:
             sent_date = st.date_input("Date actually sent", value=date.today())
             if st.button("Mark as sent"):
-                record = {c: brand_info.get(c) for c in db.EDITABLE_COLUMNS}
-                record["email_text"] = edited_draft
-                record["date_sent"] = sent_date.isoformat()
-                record["stage"] = "in_communication"
-                if brand_info.get("id") is not None:
-                    db.update_record(int(brand_info["id"]), record)
-                else:
-                    db.insert_record(record)
+                _save_record({"date_sent": sent_date.isoformat(), "stage": "in_communication"})
                 st.session_state.pop("ai_draft_result", None)
                 st.session_state.pop("draft_target_id", None)
                 st.success(f"Marked as sent on {sent_date.isoformat()} and moved to In communication.")

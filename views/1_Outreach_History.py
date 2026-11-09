@@ -193,7 +193,7 @@ def _inline_stage_editor(df, stage, key_prefix):
         num_rows="dynamic",
         hide_index=True,
         width='stretch',
-        disabled=["id"],
+        disabled=["id", "ai_chance_label", "ai_chance_reasoning", "ai_relied_on"],
         column_config=EDIT_COLUMN_CONFIG,
     )
 

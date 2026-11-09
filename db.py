@@ -62,6 +62,9 @@ COLUMNS = [
     "outcome",
     "reply_date",
     "stage",
+    "ai_chance_label",
+    "ai_chance_reasoning",
+    "ai_relied_on",
     "created_at",
     "updated_at",
 ]
@@ -90,6 +93,9 @@ def init_db() -> None:
                 notes TEXT,
                 outcome TEXT,
                 reply_date TEXT,
+                ai_chance_label TEXT,
+                ai_chance_reasoning TEXT,
+                ai_relied_on TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )
@@ -120,6 +126,9 @@ def init_db() -> None:
                 WHERE stage IS NULL
                 """
             )
+        for col in ("ai_chance_label", "ai_chance_reasoning", "ai_relied_on"):
+            if col not in existing_cols:
+                conn.execute(f"ALTER TABLE outreach ADD COLUMN {col} TEXT")
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS templates (
