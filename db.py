@@ -150,7 +150,18 @@ def init_db() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS club_notes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                text TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
         seed_defaults(conn)
+        seed_club_notes(conn)
     maybe_daily_backup()
 
 
@@ -235,6 +246,86 @@ def seed_defaults(conn) -> None:
                 "INSERT INTO templates (name, body, created_at, updated_at) VALUES (?, ?, ?, ?)",
                 (name, body, now, now),
             )
+
+
+# Facts gathered from MFBC's own website/Instagram during research — shown as
+# editable bullets on Home, and fed to the AI as background when drafting, so
+# an edit here actually changes future AI output, not just the display page.
+DEFAULT_CLUB_NOTES = [
+    "MFBC (Madison Fashion Business Collective) was founded in 2025 by "
+    "co-founders/co-presidents Gaby Goldberg, Tess Parker, and Sam Waxer; it connects "
+    "UW-Madison students with the fashion, business, and media industries.",
+    "MFBC is distinct from UW's other fashion org, The Vault: Business Behind Fashion — "
+    "MFBC focuses on direct engagement with industry professionals (speakers, networking, "
+    "profiles), not general fashion-business education.",
+    "Members work on one of three teams: marketing, social media, or creative "
+    "partnerships. Membership requires at least a 3.0 GPA.",
+    "MFBC's flagship event is a fall convention: a speaker panel, networking, "
+    "flea-market-style pop-ups (\"FLEA\"), and food & drink.",
+    "MFBC hosted its first event in April 2025, sponsored by the soda brand Poppi.",
+    "Convention N°1 was held Nov 7, 2025. Speakers: Jennifer Fisher (Jennifer Fisher "
+    "Jewelry), Karen Tolchin (Current Home), Sami Elfus (Colour Pop), Lauren Maslauski "
+    "(captioned \"ICA Beauty\" — verify spelling), Regine Basha (Aaron Basha), and Josh "
+    "Kuhn (Wisconsin Design Team, which also co-hosted the convention weekend welcome "
+    "party).",
+    "Convention N°1 in-kind sponsors: Press House NY (tote bags), Sunshine Sweets "
+    "(candy favors), Dot Cakes (desserts).",
+    "Convention N°2 was held Oct 18, 2026 at Union South Varsity Hall. Speakers: Mason "
+    "Henderson & Rob Bowhan (August), Rachel Kulacz / Ashley Venerable-White / Gordon "
+    "Scott (all Shopbop — three reps sent), Sarikka Raman (NYC celebrity fashion "
+    "stylist), Georgie Dorfman (All My Love), Shan Hasbrook (Elwood Clothing), Sammi "
+    "Tapper (Vogue), Jamie Grossman & Sarah Benavides (PRTNR Recruiting), and Jasmine "
+    "Snow (freelance fashion editor and stylist).",
+    "Convention N°2 sponsors: Good Molecules (swag bags) and Aaron Basha — a repeat "
+    "sponsor/partner across both conventions.",
+    "MFBC also runs a smaller, standalone \"MFBC Speaker Series\" open to non-members — "
+    "e.g. a talk with Chelsea Parke Goles, founder & CEO of Parke.",
+    "MFBC runs a \"Career Series\" (fashion marketing, journalism, styling sessions) and "
+    "highlights member achievements on Instagram, e.g. a member attending Vogue Summer "
+    "School.",
+]
+
+
+def seed_club_notes(conn) -> None:
+    has_notes = conn.execute("SELECT COUNT(*) FROM club_notes").fetchone()[0]
+    if not has_notes:
+        now = _now()
+        for text in DEFAULT_CLUB_NOTES:
+            conn.execute(
+                "INSERT INTO club_notes (text, created_at, updated_at) VALUES (?, ?, ?)",
+                (text, now, now),
+            )
+
+
+def fetch_club_notes() -> list[dict]:
+    with _connect() as conn:
+        rows = conn.execute("SELECT id, text FROM club_notes ORDER BY id").fetchall()
+    return [{"id": r[0], "text": r[1]} for r in rows]
+
+
+def add_club_note(text: str) -> None:
+    text = text.strip()
+    if not text:
+        return
+    now = _now()
+    with _connect() as conn:
+        conn.execute(
+            "INSERT INTO club_notes (text, created_at, updated_at) VALUES (?, ?, ?)",
+            (text, now, now),
+        )
+
+
+def delete_club_note(note_id: int) -> None:
+    with _connect() as conn:
+        conn.execute("DELETE FROM club_notes WHERE id = ?", (note_id,))
+
+
+def club_notes_text() -> str:
+    """Plain bullet list for the AI's background context — the live, editable facts."""
+    notes = fetch_club_notes()
+    if not notes:
+        return "(no notes recorded yet)"
+    return "\n".join(f"- {n['text']}" for n in notes)
 
 
 @contextmanager

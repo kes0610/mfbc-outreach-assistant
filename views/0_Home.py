@@ -40,3 +40,38 @@ else:
         who = f" — {row.sender}" if row.sender else ""
         lines.append(f"- **Awaiting response from:** {row.company}{who}")
     st.markdown("\n".join(lines))
+
+st.divider()
+st.subheader("MFBC Research Notes")
+st.caption(
+    "Facts gathered from MFBC's own website and Instagram. This is what Claude reads as "
+    "background when it researches and drafts, so keep it accurate — edits here change "
+    "future AI drafts, not just this page."
+)
+
+notes_editing = st.session_state.get("club_notes_editing", False)
+if st.button("Edit" if not notes_editing else "Done editing", key="club_notes_edit_toggle"):
+    st.session_state["club_notes_editing"] = not notes_editing
+    st.rerun()
+
+club_notes = db.fetch_club_notes()
+if not club_notes:
+    st.caption("No notes recorded yet.")
+elif notes_editing:
+    for note in club_notes:
+        c1, c2 = st.columns([5, 1])
+        c1.write(f"- {note['text']}")
+        if c2.button("Remove", key=f"remove_note_{note['id']}"):
+            db.delete_club_note(note["id"])
+            st.rerun()
+else:
+    st.markdown("\n".join(f"- {note['text']}" for note in club_notes))
+
+if notes_editing:
+    add_key = f"new_club_note_text_{st.session_state.get('club_note_add_version', 0)}"
+    new_note_text = st.text_area("Add a new bullet", key=add_key)
+    if st.button("Add bullet", type="primary"):
+        if new_note_text.strip():
+            db.add_club_note(new_note_text)
+            st.session_state["club_note_add_version"] = st.session_state.get("club_note_add_version", 0) + 1
+            st.rerun()

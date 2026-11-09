@@ -77,9 +77,10 @@ if active_batch:
 
 st.divider()
 
-tab_new, tab_comm, tab_future, tab_attending, tab_archived, tab_add, tab_import = st.tabs(
+tab_all, tab_new, tab_comm, tab_future, tab_attending, tab_archived, tab_add, tab_import = st.tabs(
     [
-        "New brand",
+        "All brands",
+        "Brand ideas",
         "In communication",
         "Future participation",
         "Attending",
@@ -130,6 +131,21 @@ def _stage_table(stage_df, key_prefix, height=None):
     if changed:
         _saved_now()
         st.rerun()
+
+
+def _history_link(stage_df, key_prefix):
+    """Pick a brand shown in this table and jump to its full History page."""
+    options = {f"{row.company} (id {row.id})": row.id for row in stage_df.itertuples()}
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        choice = st.selectbox(
+            "View a brand's history", list(options.keys()), key=f"{key_prefix}_history_choice",
+        )
+    with c2:
+        st.write("")
+        if st.button("History", key=f"{key_prefix}_history_button", width='stretch'):
+            st.session_state["history_target_id"] = int(options[choice])
+            st.switch_page("views/4_History.py")
 
 
 EDIT_COLUMN_CONFIG = {
@@ -258,18 +274,35 @@ def _edit_toggle(df, stage, key_prefix):
 # Pipeline stage tabs
 # ---------------------------------------------------------------------------
 
+with tab_all:
+    st.caption(
+        f"{len(df)} brand(s)/people total, newest to oldest (by date sent where known, "
+        "otherwise by when it was logged)."
+    )
+    if df.empty:
+        st.info("Nothing logged yet.")
+    else:
+        all_df = df.copy()
+        sort_key = pd.to_datetime(all_df["date_sent"], errors="coerce")
+        fallback_key = pd.to_datetime(all_df["created_at"], errors="coerce")
+        all_df["_sort"] = sort_key.fillna(fallback_key)
+        all_df = all_df.sort_values("_sort", ascending=False)
+        _stage_table(all_df, "all")
+        _history_link(all_df, "all")
+
 with tab_new:
     new_df = df[df["stage"] == "new"].copy()
     st.caption(
-        f"{len(new_df)} brand(s) not yet contacted. Pick one to draft an outreach email "
-        "and see a rough reply-chance estimate before you send."
+        f"{len(new_df)} brand(s)/people not yet contacted. Pick one to draft an outreach "
+        "email and see a rough reply-chance estimate before you send."
     )
     editing = _edit_toggle(df, "new", "new")
     if not editing:
         if new_df.empty:
-            st.info("Nothing in New brand right now.")
+            st.info("Nothing in Brand ideas right now.")
         else:
             _stage_table(new_df, "new")
+            _history_link(new_df, "new")
             options = {f"{row.company} (id {row.id})": row.id for row in new_df.itertuples()}
             choice = st.selectbox("Choose a brand", list(options.keys()), key="new_brand_choice")
             if choice:
@@ -304,6 +337,7 @@ with tab_comm:
             st.info("Nothing in In communication right now.")
         else:
             _stage_table(comm_df, "comm")
+            _history_link(comm_df, "comm")
 
 with tab_future:
     future_df = df[df["stage"] == "future_participation"].copy()
@@ -317,6 +351,8 @@ with tab_future:
             st.info("Nothing in Future participation right now.")
         else:
             _stage_table(future_df, "future")
+            _history_link(future_df, "future")
+
 with tab_attending:
     attending_df = df[df["stage"] == "attending"].copy()
     st.caption(f"{len(attending_df)} brand(s)/people confirmed or already part of a past convention.")
@@ -326,6 +362,7 @@ with tab_attending:
             st.info("Nothing confirmed as attending yet.")
         else:
             _stage_table(attending_df, "attending")
+            _history_link(attending_df, "attending")
 
 with tab_archived:
     archived_df = df[df["stage"] == "archived"].copy()
@@ -336,6 +373,7 @@ with tab_archived:
             st.info("Nothing archived right now.")
         else:
             _stage_table(archived_df, "archived")
+            _history_link(archived_df, "archived")
 
 # ---------------------------------------------------------------------------
 # Tab: Add one email

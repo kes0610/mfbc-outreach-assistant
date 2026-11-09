@@ -11,6 +11,8 @@ from pathlib import Path
 import anthropic
 from dotenv import load_dotenv
 
+import db
+
 load_dotenv()
 
 CLUB_INFO_PATH = Path(__file__).parent / "club_info.md"
@@ -67,9 +69,12 @@ a status update about what you were doing.
 
 
 def read_club_info() -> str:
-    if CLUB_INFO_PATH.exists():
-        return CLUB_INFO_PATH.read_text()
-    return ""
+    """The club's narrative background, plus the live, member-editable fact
+    bullets from the Home page — editing a bullet there changes this, and so
+    changes what the AI uses on the next draft."""
+    base = CLUB_INFO_PATH.read_text() if CLUB_INFO_PATH.exists() else ""
+    notes = db.club_notes_text()
+    return f"{base}\n\n## Known facts (maintained by the club, editable on the Home page)\n{notes}"
 
 
 def api_key_available() -> bool:
