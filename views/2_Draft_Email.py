@@ -128,8 +128,9 @@ if brand_info:
             st.caption(
                 "Claude will search the web for real public info about this company, weigh it "
                 "against MFBC's own outreach history, and draft an email explaining specifically "
-                "why they'd want to be part of MFBC — not a generic template. Capped at 15 "
-                "seconds of research, so it stays fast."
+                "why they'd want to be part of MFBC — not a generic template. This can take a "
+                "minute or so since it's doing real research; it won't stop early with a "
+                "half-finished draft."
             )
             extra_info = st.text_area(
                 "Anything else you already know about them? (optional — Claude researches the "
@@ -137,7 +138,7 @@ if brand_info:
                 key="extra_public_info",
             )
             if st.button("Research & draft with AI", type="primary"):
-                with st.spinner("Researching the company and drafting..."):
+                with st.spinner("Researching the company and drafting — this can take a minute..."):
                     try:
                         result = drafting.research_and_draft(brand_info, df, extra_info)
                         st.session_state["ai_draft_result"] = result
@@ -147,11 +148,6 @@ if brand_info:
 
             result = st.session_state.get("ai_draft_result")
             if result:
-                if result.get("timed_out"):
-                    st.caption(
-                        "Research hit the 15-second time limit, so this is based on whatever "
-                        "it found by then — thinner than a full research pass, but fast."
-                    )
                 if result.get("chance_label"):
                     c1, c2 = st.columns([1, 3])
                     c1.metric("Researched reply chance", result["chance_label"])
