@@ -6,6 +6,7 @@ doesn't know with a placeholder rather than invent it.
 """
 
 import os
+import time
 from pathlib import Path
 
 import anthropic
@@ -15,6 +16,7 @@ load_dotenv()
 
 CLUB_INFO_PATH = Path(__file__).parent / "club_info.md"
 MODEL = "claude-sonnet-5-5"
+RESEARCH_TIMEOUT_SECONDS = 15
 
 SYSTEM_PROMPT_RESEARCH = """You help MFBC (Madison Fashion Business Collective), a UW-Madison \
 student organization, prepare outreach to brands, companies, or individuals for sponsorship, \
@@ -59,6 +61,10 @@ Rules:
 - Never invent facts about the company, numbers, dates, or past interactions. If your search \
 doesn't turn up something relevant, say so rather than guessing.
 - Keep the tone professional but warm and genuine.
+- You're working under a tight time budget. Do one or two well-chosen searches, not an \
+exhaustive research chain, and move on to writing the three sections as soon as you have \
+enough to work with. Getting to a complete, well-formatted answer matters more than finding \
+every possible fact.
 """
 
 
@@ -107,7 +113,12 @@ def _history_summary(history_df) -> str:
 
 
 def research_and_draft(brand_info: dict, history_df, extra_public_info: str = "") -> dict:
-    """AI mode: Claude researches the company via web search, then returns a chance assessment and a draft grounded in that research plus MFBC's own history."""
+    """AI mode: Claude researches the company via web search, then returns a chance assessment and a draft grounded in that research plus MFBC's own history.
+
+    Capped at RESEARCH_TIMEOUT_SECONDS of wall-clock time — whatever text has
+    streamed back by then is what gets parsed, rather than waiting out a long
+    multi-search research chain.
+    """
     club_info = read_club_info()
     brand_block = _brand_block(brand_info)
     history_block = _history_summary(history_df)
@@ -128,18 +139,26 @@ ADDITIONAL INFO THE MEMBER ALREADY KNOWS (optional, may be empty):
 Research this company with web search, then produce the three sections exactly as instructed."""
 
     client = anthropic.Anthropic()
-    response = client.messages.create(
+    deadline = time.monotonic() + RESEARCH_TIMEOUT_SECONDS
+    text = ""
+    timed_out = False
+    with client.messages.stream(
         model=MODEL,
         max_tokens=2048,
         system=SYSTEM_PROMPT_RESEARCH,
-        tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 10}],
+        tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 4}],
         messages=[{"role": "user", "content": user_message}],
-    )
-    text = "".join(block.text for block in response.content if block.type == "text")
+    ) as stream:
+        for event in stream:
+            if event.type == "content_block_delta" and event.delta.type == "text_delta":
+                text += event.delta.text
+            if time.monotonic() >= deadline:
+                timed_out = True
+                break
 
     chance_label = None
     chance_reasoning = ""
-    draft = text
+    draft = None
     relied_on = "(model did not return a relied-on list)"
 
     if "---CHANCE---" in text and "---DRAFT---" in text:
@@ -158,12 +177,25 @@ Research this company with web search, then produce the three sections exactly a
             draft, relied_on = rest.split("---RELIED ON---", 1)
         else:
             draft = rest
+            if timed_out:
+                relied_on = "(research hit the 15-second limit before it listed sources)"
     elif "---RELIED ON---" in text:
         draft, relied_on = text.split("---RELIED ON---", 1)
+    elif not timed_out:
+        draft = text
+
+    if draft is None:
+        draft = (
+            "Research hit the 15-second limit before it got to writing the draft. Try again "
+            "(it may get further with a cached search), or use the free template for an "
+            "instant draft instead."
+        )
+        relied_on = chance_reasoning or "(research cut short by the 15-second limit)"
 
     return {
         "chance_label": chance_label,
         "chance_reasoning": chance_reasoning,
         "draft": draft.strip(),
         "relied_on": relied_on.strip(),
+        "timed_out": timed_out,
     }
