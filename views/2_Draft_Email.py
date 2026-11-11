@@ -35,7 +35,14 @@ if source_mode == "Pick from New brand":
         brand_info = None
     else:
         default_idx = 0
-        options = {f"{row.company} (id {row.id})": row.id for row in new_df.itertuples()}
+        name_counts = new_df["company"].value_counts()
+        options = {
+            (
+                f"{row.company} — {row.sender}" if name_counts.get(row.company, 0) > 1 and row.sender
+                else row.company
+            ): row.id
+            for row in new_df.itertuples()
+        }
         if target is not None:
             for i, (label, rid) in enumerate(options.items()):
                 if rid == target_id:
@@ -82,8 +89,8 @@ if brand_info:
         c1, c2 = st.columns([1, 3])
         c1.metric("Rough reply chance", chance["label"])
         c2.caption(
-            f"Rule of thumb, not a trained model ({chance['base_n']} labeled outcome(s) so far, "
-            f"need {db.MODEL_MIN_N}+). " + " · ".join(chance["reasons"])
+            f"A quick estimate from connection/relationship signals and the club's reply "
+            f"history so far ({chance['base_n']} logged outcome(s)). " + " · ".join(chance["reasons"])
         )
     else:
         st.caption(

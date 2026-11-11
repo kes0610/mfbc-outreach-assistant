@@ -65,6 +65,7 @@ COLUMNS = [
     "ai_chance_label",
     "ai_chance_reasoning",
     "ai_relied_on",
+    "response_text",
     "created_at",
     "updated_at",
 ]
@@ -126,7 +127,7 @@ def init_db() -> None:
                 WHERE stage IS NULL
                 """
             )
-        for col in ("ai_chance_label", "ai_chance_reasoning", "ai_relied_on"):
+        for col in ("ai_chance_label", "ai_chance_reasoning", "ai_relied_on", "response_text"):
             if col not in existing_cols:
                 conn.execute(f"ALTER TABLE outreach ADD COLUMN {col} TEXT")
         conn.execute(
@@ -588,7 +589,10 @@ def compute_summary(df: pd.DataFrame) -> dict:
             warnings.append(f"{missing_dates} record(s) are missing a date sent.")
         bad_outcomes = int((~df["outcome"].isin(OUTCOMES)).sum())
         if bad_outcomes:
-            warnings.append(f"{bad_outcomes} record(s) have an outcome value the model can't use.")
+            warnings.append(
+                f"{bad_outcomes} record(s) don't have a recorded outcome yet (expected for "
+                "brand ideas and attending brands — only matters for the reply-chance estimate)."
+            )
         dup_count = len(find_duplicate_groups(df))
         if dup_count:
             warnings.append(f"{dup_count} record(s) look like duplicates of each other.")

@@ -68,6 +68,114 @@ a status update about what you were doing.
 """
 
 
+SYSTEM_PROMPT_FOLLOWUP = """You help MFBC (Madison Fashion Business Collective), a UW-Madison \
+student organization, continue an email conversation with a brand, company, or individual \
+they've already reached out to about a sponsorship, speaking, or partnership opportunity.
+
+You are given MFBC's background, the brand/contact's details, the email MFBC already sent them, \
+what MFBC had previously researched or knew about them, and their actual reply.
+
+Write a single follow-up email that directly responds to what they said — answer any question \
+they asked, address any concern they raised, and move the conversation forward (e.g. propose a \
+next step, answer logistics, or thank them and confirm next steps if they said yes). Do not \
+repeat the full original pitch or re-introduce MFBC from scratch — they already know who MFBC is.
+
+Rules:
+- Never invent facts, numbers, or dates not given to you.
+- Professional but warm tone, a student club member writing to someone they're already talking to.
+- Under ~150 words. No subject line unless asked.
+- Output ONLY the email body — no preamble, no section markers, no commentary.
+"""
+
+
+SYSTEM_PROMPT_REMINDER = """You help MFBC (Madison Fashion Business Collective), a UW-Madison \
+student organization, write a polite follow-up/reminder email to a brand, company, or individual \
+they already emailed but haven't heard back from yet.
+
+You are given MFBC's background, the brand/contact's details, what MFBC had previously \
+researched or knew about them, and the email MFBC already sent.
+
+Write a short, polite reminder — reference the original note briefly (don't repeat the whole \
+pitch), acknowledge they're probably busy, and restate interest without being pushy.
+
+Rules:
+- Never invent facts, numbers, or dates not given to you.
+- Professional but warm tone, a student club member following up.
+- Under ~100 words. No subject line unless asked.
+- Output ONLY the email body — no preamble, no section markers, no commentary.
+"""
+
+
+def draft_reminder(record: dict) -> dict:
+    """One-shot reminder draft for a brand that hasn't replied yet — a polite nudge based on
+    the original email and what MFBC knew, with no reply to respond to."""
+    club_info = read_club_info()
+    brand_block = _brand_block(record)
+    original_email = record.get("email_text") or "(no original email on file)"
+    relied_on = record.get("ai_relied_on") or "(none recorded)"
+
+    user_message = f"""MFBC CLUB BACKGROUND:
+{club_info}
+
+BRAND/CONTACT DETAILS:
+{brand_block}
+
+WHAT MFBC PREVIOUSLY KNEW/RESEARCHED ABOUT THEM:
+{relied_on}
+
+THE EMAIL MFBC ALREADY SENT THEM (no reply yet):
+{original_email}
+
+Write the reminder/follow-up email."""
+
+    client = anthropic.Anthropic()
+    message = client.messages.create(
+        model=MODEL,
+        max_tokens=512,
+        system=SYSTEM_PROMPT_REMINDER,
+        messages=[{"role": "user", "content": user_message}],
+    )
+    text = "".join(block.text for block in message.content if block.type == "text")
+    return {"draft": text.strip()}
+
+
+def draft_followup(record: dict, response_text: str) -> dict:
+    """One-shot follow-up draft: given the email MFBC already sent, what MFBC knew about this
+    brand, and their actual reply, draft the next email in the conversation. No web search —
+    this is a quick continuation of an existing thread, not fresh research."""
+    club_info = read_club_info()
+    brand_block = _brand_block(record)
+    original_email = record.get("email_text") or "(no original email on file)"
+    relied_on = record.get("ai_relied_on") or "(none recorded)"
+
+    user_message = f"""MFBC CLUB BACKGROUND:
+{club_info}
+
+BRAND/CONTACT DETAILS:
+{brand_block}
+
+WHAT MFBC PREVIOUSLY KNEW/RESEARCHED ABOUT THEM:
+{relied_on}
+
+THE EMAIL MFBC ALREADY SENT THEM:
+{original_email}
+
+THEIR REPLY:
+{response_text.strip() or "(no reply text given)"}
+
+Write the follow-up email."""
+
+    client = anthropic.Anthropic()
+    message = client.messages.create(
+        model=MODEL,
+        max_tokens=1024,
+        system=SYSTEM_PROMPT_FOLLOWUP,
+        messages=[{"role": "user", "content": user_message}],
+    )
+    text = "".join(block.text for block in message.content if block.type == "text")
+    return {"draft": text.strip()}
+
+
 def read_club_info() -> str:
     """The club's narrative background, plus the live, member-editable fact
     bullets from the Home page — editing a bullet there changes this, and so

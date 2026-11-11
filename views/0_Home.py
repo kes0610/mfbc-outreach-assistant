@@ -9,7 +9,7 @@ inject_global_css()
 page_header("MFBC Outreach Assistant", "Draft outreach, estimate reply chances, track the pipeline.")
 
 st.info(
-    "**Start with Outreach History** (top menu) to enter or import past and ongoing "
+    "**Start with Outreach List** (top menu) to enter or import past and ongoing "
     "outreach — drafting and the reply-chance estimate are built on top of that data."
 )
 

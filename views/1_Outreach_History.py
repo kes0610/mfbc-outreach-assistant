@@ -9,7 +9,7 @@ from styling import inject_global_css, page_header
 db.init_db()
 inject_global_css()
 
-page_header("Outreach History", "Every brand, from first idea to confirmed attendee.")
+page_header("Outreach List", "Every brand's stage and basic info, in one filterable, sortable list.")
 
 def _to_date(value):
     if value in (None, "", "None") or (isinstance(value, float) and pd.isna(value)):
@@ -51,8 +51,10 @@ cols[3].metric("Reply rate", f"{rate:.0%}" if rate is not None else "—")
 if summary["date_min"] and summary["date_max"]:
     st.caption(f"Date range: {summary['date_min']} → {summary['date_max']}")
 
-for w in summary["warnings"]:
-    st.warning(w)
+if summary["warnings"]:
+    with st.expander(f"Data quality notes ({len(summary['warnings'])})"):
+        for w in summary["warnings"]:
+            st.caption(w)
 
 top_left, top_right = st.columns([3, 1])
 with top_left:
@@ -99,53 +101,28 @@ STAGE_LABEL_OPTIONS = [db.STAGE_LABELS[s] for s in db.STAGES]
 STAGE_LABEL_TO_KEY = {v: k for k, v in db.STAGE_LABELS.items()}
 
 
-def _stage_table(stage_df, key_prefix, height=None):
-    """The main table for a stage, with a clickable Stage dropdown column
-    built in — the quickest way to move a brand, no separate control."""
+def _brand_table(stage_df, key_prefix):
+    """Read-only, at-a-glance grid for a stage. Auto-sized to its row count
+    (no internal scrollbar) — click a column header to sort it. Each row's
+    clock icon opens that one brand's write-up on Brand History."""
     view_df = stage_df[PIPELINE_VIEW_COLUMNS].copy()
+    view_df.insert(0, "history", "/history?brand_id=" + stage_df["id"].astype(int).astype(str))
     view_df["date_sent"] = view_df["date_sent"].apply(_to_date)
     view_df["stage"] = view_df["stage"].map(db.STAGE_LABELS)
 
-    editor_key = f"{key_prefix}_stage_table"
-    st.data_editor(
+    st.dataframe(
         view_df,
-        key=editor_key,
+        key=f"{key_prefix}_brand_table",
         hide_index=True,
         width='stretch',
-        height=height or min(500, 40 + 35 * len(view_df)),
-        disabled=[c for c in PIPELINE_VIEW_COLUMNS if c != "stage"],
+        height=40 + 35 * max(len(view_df), 1),
         column_config={
-            "stage": st.column_config.SelectboxColumn("Stage", options=STAGE_LABEL_OPTIONS, required=True),
+            "history": st.column_config.LinkColumn(
+                " ", display_text="🕒", width="small", help="Open this brand's write-up on Brand History",
+            ),
             "date_sent": st.column_config.DateColumn("Date sent"),
         },
     )
-
-    state = st.session_state.get(editor_key, {})
-    changed = False
-    for pos, changes in state.get("edited_rows", {}).items():
-        if "stage" not in changes:
-            continue
-        row_id = int(stage_df.iloc[int(pos)]["id"])
-        db.set_stage(row_id, STAGE_LABEL_TO_KEY[changes["stage"]])
-        changed = True
-    if changed:
-        _saved_now()
-        st.rerun()
-
-
-def _history_link(stage_df, key_prefix):
-    """Pick a brand shown in this table and jump to its full History page."""
-    options = {f"{row.company} (id {row.id})": row.id for row in stage_df.itertuples()}
-    c1, c2 = st.columns([3, 1])
-    with c1:
-        choice = st.selectbox(
-            "View a brand's history", list(options.keys()), key=f"{key_prefix}_history_choice",
-        )
-    with c2:
-        st.write("")
-        if st.button("History", key=f"{key_prefix}_history_button", width='stretch'):
-            st.session_state["history_target_id"] = int(options[choice])
-            st.switch_page("views/4_History.py")
 
 
 EDIT_COLUMN_CONFIG = {
@@ -262,9 +239,18 @@ def _edit_toggle(df, stage, key_prefix):
     editor is open (so the caller can hide its normal read-only view)."""
     editing_key = f"{key_prefix}_editing"
     editing = st.session_state.get(editing_key, False)
-    if st.button("Edit" if not editing else "Done editing", key=f"{key_prefix}_edit_toggle"):
-        st.session_state[editing_key] = not editing
-        st.rerun()
+    c1, c2 = st.columns([1, 4])
+    with c1:
+        if st.button("Edit" if not editing else "Done editing", key=f"{key_prefix}_edit_toggle"):
+            st.session_state[editing_key] = not editing
+            st.rerun()
+    with c2:
+        st.caption(
+            "Click a row's clock icon for that brand's full write-up, response, or "
+            "follow-up drafting on Brand History (top menu)."
+            if not editing
+            else "Change stage, company, or anything else here — it saves automatically."
+        )
     if editing:
         _inline_stage_editor(df, stage, key_prefix)
     return editing
@@ -276,19 +262,13 @@ def _edit_toggle(df, stage, key_prefix):
 
 with tab_all:
     st.caption(
-        f"{len(df)} brand(s)/people total, newest to oldest (by date sent where known, "
-        "otherwise by when it was logged)."
+        f"{len(df)} brand(s)/people total. Click a column header to sort, or a row's clock "
+        "icon for that brand's full write-up on Brand History (top menu)."
     )
     if df.empty:
         st.info("Nothing logged yet.")
     else:
-        all_df = df.copy()
-        sort_key = pd.to_datetime(all_df["date_sent"], errors="coerce")
-        fallback_key = pd.to_datetime(all_df["created_at"], errors="coerce")
-        all_df["_sort"] = sort_key.fillna(fallback_key)
-        all_df = all_df.sort_values("_sort", ascending=False)
-        _stage_table(all_df, "all")
-        _history_link(all_df, "all")
+        _brand_table(df, "all")
 
 with tab_new:
     new_df = df[df["stage"] == "new"].copy()
@@ -301,9 +281,15 @@ with tab_new:
         if new_df.empty:
             st.info("Nothing in Brand ideas right now.")
         else:
-            _stage_table(new_df, "new")
-            _history_link(new_df, "new")
-            options = {f"{row.company} (id {row.id})": row.id for row in new_df.itertuples()}
+            _brand_table(new_df, "new")
+            name_counts = new_df["company"].value_counts()
+            options = {
+                (
+                    f"{row.company} — {row.sender}" if name_counts.get(row.company, 0) > 1 and row.sender
+                    else row.company
+                ): row.id
+                for row in new_df.itertuples()
+            }
             choice = st.selectbox("Choose a brand", list(options.keys()), key="new_brand_choice")
             if choice:
                 target_id = options[choice]
@@ -314,13 +300,12 @@ with tab_new:
                     st.metric("Rough reply chance", chance["label"])
                 with c2:
                     st.caption(
-                        "Based on a simple rule of thumb, not a trained model — only "
-                        f"{chance['base_n']} labeled outcome(s) logged so far (need {db.MODEL_MIN_N}+ "
-                        "for a real statistical model). Club-wide so far: "
+                        "A quick estimate from connection/relationship signals and the "
+                        "club's reply history so far"
                         + (
-                            f"{chance['base_replied']}/{chance['base_n']} replied."
+                            f" ({chance['base_replied']}/{chance['base_n']} replied club-wide)."
                             if chance["base_n"]
-                            else "no labeled outcomes yet."
+                            else " (no outcomes logged yet)."
                         )
                     )
                     st.caption(" · ".join(chance["reasons"]))
@@ -336,8 +321,7 @@ with tab_comm:
         if comm_df.empty:
             st.info("Nothing in In communication right now.")
         else:
-            _stage_table(comm_df, "comm")
-            _history_link(comm_df, "comm")
+            _brand_table(comm_df, "comm")
 
 with tab_future:
     future_df = df[df["stage"] == "future_participation"].copy()
@@ -350,8 +334,7 @@ with tab_future:
         if future_df.empty:
             st.info("Nothing in Future participation right now.")
         else:
-            _stage_table(future_df, "future")
-            _history_link(future_df, "future")
+            _brand_table(future_df, "future")
 
 with tab_attending:
     attending_df = df[df["stage"] == "attending"].copy()
@@ -361,8 +344,7 @@ with tab_attending:
         if attending_df.empty:
             st.info("Nothing confirmed as attending yet.")
         else:
-            _stage_table(attending_df, "attending")
-            _history_link(attending_df, "attending")
+            _brand_table(attending_df, "attending")
 
 with tab_archived:
     archived_df = df[df["stage"] == "archived"].copy()
@@ -372,8 +354,7 @@ with tab_archived:
         if archived_df.empty:
             st.info("Nothing archived right now.")
         else:
-            _stage_table(archived_df, "archived")
-            _history_link(archived_df, "archived")
+            _brand_table(archived_df, "archived")
 
 # ---------------------------------------------------------------------------
 # Tab: Add one email
