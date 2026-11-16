@@ -1,6 +1,24 @@
+import os
+
 import streamlit as st
+from dotenv import load_dotenv
+
+load_dotenv()
 
 st.set_page_config(page_title="MFBC Outreach Assistant", layout="wide")
+
+app_password = os.environ.get("APP_PASSWORD")
+if app_password:
+    if not st.session_state.get("authed"):
+        st.title("MFBC Outreach Assistant")
+        entered = st.text_input("Password", type="password")
+        if entered:
+            if entered == app_password:
+                st.session_state["authed"] = True
+                st.rerun()
+            else:
+                st.error("Wrong password.")
+        st.stop()
 
 pages = [
     st.Page("views/0_Home.py", title="Home", url_path="home", default=True),
