@@ -109,6 +109,13 @@ def _brand_table(stage_df, key_prefix):
     view_df.insert(0, "history", "/history?brand_id=" + stage_df["id"].astype(int).astype(str))
     view_df["date_sent"] = view_df["date_sent"].apply(_to_date)
     view_df["stage"] = view_df["stage"].map(db.STAGE_LABELS)
+    def _preview(text, limit=60):
+        if not isinstance(text, str) or not text:
+            return None
+        return text[:limit].rstrip() + "…" if len(text) > limit else text
+
+    view_df["email_draft"] = stage_df["email_text"].apply(_preview)
+    view_df["ai_research"] = stage_df["ai_relied_on"].apply(_preview)
 
     st.dataframe(
         view_df,
@@ -118,7 +125,13 @@ def _brand_table(stage_df, key_prefix):
         height=40 + 35 * max(len(view_df), 1),
         column_config={
             "history": st.column_config.LinkColumn(
-                " ", display_text="🕒", width="small", help="Open this brand's write-up on Brand History",
+                "History", display_text="🕒", width="small", help="Open this brand's write-up on Brand History",
+            ),
+            "email_draft": st.column_config.TextColumn(
+                "Email Draft", width="medium", help="Preview of the drafted/sent email — open History for the full text",
+            ),
+            "ai_research": st.column_config.TextColumn(
+                "AI Research", width="medium", help="Preview of the AI-researched background behind this row — open History for the full text",
             ),
             "date_sent": st.column_config.DateColumn("Date sent"),
         },
